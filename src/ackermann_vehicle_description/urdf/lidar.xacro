@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" >
+
+    <joint name="head_lidar_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="head_lidar"/>
+        <origin xyz="0 0 0.1" rpy="0 0 0"/>
+    </joint>
+
+    <link name="head_lidar">
+        <visual>
+            <geometry>
+                <cylinder radius="0.05" length="0.02"/>
+            </geometry>
+            <material name="red"/>
+        </visual>
+    </link>
+
+    <gazebo reference="head_lidar">
+        <material>Gazebo/Red</material>
+
+        <sensor name="head_lidar_sensor" type="ray">
+            <pose> 0 0 0 0 0 0 </pose>
+            <visualize>false</visualize>
+            <update_rate>40</update_rate>
+            <ray>
+                <scan>
+                    <horizontal>
+                        <samples>720</samples>
+                        <resolution>1</resolution>
+                        <min_angle>-3.141</min_angle>
+                        <max_angle>3.141</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.1</min>
+                    <max>10.0</max>
+                </range>
+            </ray>
+            <noise>
+                <type>gaussian</type>
+                <!-- Noise parameters based on published spec for Hokuyo laser
+                    achieving "+-30mm" accuracy at range < 10m.  A mean of 0.0m and
+                    stddev of 0.01m will put 99.7% of samples within 0.03m of the true
+                    reading. -->
+                <mean>0.0</mean>
+                <stddev>0.01</stddev>
+            </noise>
+            <plugin name="laser_controller" filename="libgazebo_ros_laser.so">
+                <topicName>lidar/scan</topicName>
+                <frameName>head_lidar</frameName>
+            </plugin>
+        </sensor>
+    </gazebo>
+
+</robot>

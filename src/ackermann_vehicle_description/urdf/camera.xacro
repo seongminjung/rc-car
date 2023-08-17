@@ -1,0 +1,89 @@
+<?xml version="1.0" ?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+    <link name="front_cam_link">
+        <visual>
+            <geometry>
+                <box size="0.010 0.03 0.03"/>
+            </geometry>
+            <material name="red"/>
+        </visual>
+    </link>
+
+    <joint name="front_cam_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="front_cam_link"/>
+        <origin xyz="0.2 0 0.05" rpy="0 0 0"/>
+    </joint>
+
+    <!-- We need to add the “dummy” link called camera_link_optical,
+    to account for the different coordinate standards
+    - transforming from the standard ROS robot orientation (x-forward, y-left, z-up)
+    to the standard optical orientation (x-right, y-down, z-forward). -->
+
+    <link name="front_cam_link_optical"/>
+
+    <joint name="front_cam_optical_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}" />
+        <parent link="front_cam_link" />
+        <child link="front_cam_link_optical" />
+    </joint>
+
+    <gazebo reference="front_cam_link">
+        <material>Gazebo/Red</material>
+        <sensor name="front_cam" type="camera">
+            <pose> 0 0 0 0 0 0 </pose>
+            <visualize>true</visualize>
+            <update_rate>10</update_rate>
+            <camera>
+                <horizontal_fov>1.089</horizontal_fov>
+                <image>
+                    <format>R8G8B8</format>
+                    <width>640</width>
+                    <height>480</height>
+                </image>
+                <clip>
+                    <near>0.05</near>
+                    <far>8.0</far>
+                </clip>
+            </camera>
+            <plugin name="front_cam" filename="libgazebo_ros_camera.so">
+                <frame_name>front_cam</frame_name>
+                <imageTopicName>front_cam/image_raw</imageTopicName>
+                <cameraInfoTopicName>front_cam/camera_info</cameraInfoTopicName>
+            </plugin>
+        </sensor>
+        <!-- <sensor name="front_cam" type="camera">
+            <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
+            <visualize>true</visualize>
+            <camera>
+                <horizontal_fov>1.57</horizontal_fov>
+                <image>
+                    <width>2560</width>
+                    <height>1600</height>
+                    <format>R8G8B8</format>
+                </image>
+                <clip>
+                    <near>0.01</near>
+                    <far>100.0</far>
+                </clip>
+            </camera>
+            <plugin name="front_cam" filename="libgazebo_ros_camera.so">
+                <alwaysOn>1</alwaysOn>
+                <updateRate>10.0</updateRate>
+                <imageTopicName>image_raw</imageTopicName>
+                <pointCloudTopicName>points</pointCloudTopicName>
+                <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+                <frameName>world</frameName>
+                <pointCloudCutoff>0.5</pointCloudCutoff>
+                <distortion_k1>0.00000001</distortion_k1>
+                <distortion_k2>0.00000001</distortion_k2>
+                <distortion_k3>0.00000001</distortion_k3>
+                <distortion_t1>0.00000001</distortion_t1>
+                <distortion_t2>0.00000001</distortion_t2>
+            </plugin>
+            <always_on>true</always_on>
+            <update_rate>2.0</update_rate>
+        </sensor> -->
+    </gazebo>
+
+</robot>
