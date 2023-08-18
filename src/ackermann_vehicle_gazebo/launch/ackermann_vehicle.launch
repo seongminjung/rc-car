@@ -87,5 +87,8 @@ limitations under the License.
     <!-- Keyboard driver -->
     <rosparam file="$(find ackermann_vehicle_gazebo)/config/key_binding.yaml"/>
     <node name="keyboard_driver_node" pkg="ackermann_vehicle_gazebo" type="keyboard_driver_node.py" output="screen"/>
+
+    <!-- Rviz -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d /home/mt-smjung-pc-ubuntu/rc_car/src/ackermann_vehicle_gazebo/config/config.rviz"/>
   </group>
 </launch>

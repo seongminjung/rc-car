@@ -25,5 +25,5 @@ limitations under the License.
 
 <launch>
   <arg name="namespace" default="ackermann_vehicle"/>
-  <node name="rviz" pkg="rviz" type="rviz" ns="$(arg namespace)"/>
+  <node name="rviz" pkg="rviz" type="rviz" ns="$(arg namespace)" args="-d /home/mt-smjung-pc-ubuntu/rc_car/src/ackermann_vehicle_gazebo/config/config.rviz"/>
 </launch>
