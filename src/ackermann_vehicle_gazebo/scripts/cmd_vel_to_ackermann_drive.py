@@ -10,11 +10,12 @@ from ackermann_msgs.msg import AckermannDrive
 
 
 def convert_trans_rot_vel_to_steering_angle(v, omega, wheelbase):
-  if omega == 0 or v == 0:
-    return 0
+  # if omega == 0 or v == 0:
+  #   return 0
 
-  radius = v / omega
-  return math.atan(wheelbase / radius)
+  # radius = v / omega
+  # return math.atan(wheelbase / radius)
+  return math.atan(wheelbase * omega)
 
 
 def cmd_callback(data):
@@ -29,7 +30,7 @@ def cmd_callback(data):
     steering = convert_trans_rot_vel_to_steering_angle(v, data.angular.z, wheelbase)
     
     msg = AckermannDrive()
-    msg.steering_angle = steering if data.linear.x >= 0 else -steering
+    msg.steering_angle = steering
     msg.speed = v
     
     pub.publish(msg)
