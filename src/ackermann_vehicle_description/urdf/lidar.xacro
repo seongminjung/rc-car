@@ -47,7 +47,7 @@
                 <stddev>0.01</stddev>
             </noise>
             <plugin name="laser_controller" filename="libgazebo_ros_laser.so">
-                <topicName>lidar/scan</topicName>
+                <topicName>laser/scan</topicName>
                 <frameName>head_lidar</frameName>
             </plugin>
         </sensor>

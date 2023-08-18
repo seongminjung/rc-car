@@ -8,10 +8,11 @@ from pynput.keyboard import Key, KeyCode
 from geometry_msgs.msg import Twist
 
 
-LINEAR_ACCEL = 1.3
-LINEAR_DECEL = 1.8
-ANGULAR_ACCEL = 2.5
-ANGULAR_DECEL = 3.0
+MAX_VELOCITY = 5.0
+LINEAR_ACCEL = 2.0
+LINEAR_DECEL = 3.0
+ANGULAR_ACCEL = 4.0
+ANGULAR_DECEL = 4.0
 
 class KeyboardDriverNode():
     def __init__(self):
@@ -51,7 +52,7 @@ class KeyboardDriverNode():
             if key == self.right:
                 self.status["right"] = 1
 
-            self.des_vel.linear.x = self.status["forward"] - self.status["backward"]
+            self.des_vel.linear.x = (self.status["forward"] - self.status["backward"]) * MAX_VELOCITY
             self.des_vel.angular.z = self.status["left"] - self.status["right"]
 
             # Make sure this listener node is destroyed when the node is shutdown
@@ -77,7 +78,7 @@ class KeyboardDriverNode():
             if key == self.right:
                 self.status["right"] = 0
 
-            self.des_vel.linear.x = self.status["forward"] - self.status["backward"]
+            self.des_vel.linear.x = (self.status["forward"] - self.status["backward"]) * MAX_VELOCITY
             self.des_vel.angular.z = self.status["left"] - self.status["right"]
 
         except rospy.ROSInterruptException:

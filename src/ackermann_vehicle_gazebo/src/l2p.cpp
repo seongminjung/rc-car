@@ -12,7 +12,7 @@ public:
   Laser2Point()
   {
     pub_ = n_.advertise<sensor_msgs::PointCloud2>("/rc_car/pointcloud", 1);
-    sub_ = n_.subscribe("/rc_car/lidar/scan", 1, &Laser2Point::callback, this);
+    sub_ = n_.subscribe("/rc_car/laser/scan", 1, &Laser2Point::callback, this);
   }
 
   void callback(const sensor_msgs::LaserScan::ConstPtr& scan_in)
