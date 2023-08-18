@@ -81,6 +81,9 @@ limitations under the License.
     <!-- cmd_vel to ackermann msgs -->
     <node name="cmd_vel_to_ackermann_drive" pkg="ackermann_vehicle_gazebo" type="cmd_vel_to_ackermann_drive.py"/>
 
+    <!-- Laserscan to PointCloud -->
+    <node name="l2p" pkg="ackermann_vehicle_gazebo" type="l2p"/>
+
     <!-- Keyboard driver -->
     <rosparam file="$(find ackermann_vehicle_gazebo)/config/key_binding.yaml"/>
     <node name="keyboard_driver_node" pkg="ackermann_vehicle_gazebo" type="keyboard_driver_node.py" output="screen"/>

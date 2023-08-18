@@ -16,8 +16,17 @@
 
 cmake_minimum_required(VERSION 2.8.3)
 project(ackermann_vehicle_gazebo)
-find_package(catkin REQUIRED)
-catkin_package()
+find_package(catkin REQUIRED COMPONENTS roscpp rviz)
+catkin_package(INCLUDE_DIRS include)
+include_directories(
+  include
+  ${catkin_INCLUDE_DIRS}
+)
+add_executable(l2p src/l2p.cpp)
+target_link_libraries(l2p
+  ${catkin_LIBRARIES}
+  
+)
 
 catkin_install_python(PROGRAMS scripts/ackermann_controller.py scripts/cmd_vel_to_ackermann_drive.py scripts/keyboard_driver_node.py
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
