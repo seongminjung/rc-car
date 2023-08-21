@@ -79,17 +79,5 @@ limitations under the License.
       <rosparam file="$(find ackermann_vehicle_gazebo)/config/em_3905_ackermann_ctrlr_params.yaml" command="load"/>
     </node>
 
-    <!-- cmd_vel to ackermann msgs -->
-    <node name="cmd_vel_to_ackermann_drive" pkg="ackermann_vehicle_gazebo" type="cmd_vel_to_ackermann_drive.py"/>
-
-    <!-- Laserscan to PointCloud -->
-    <!-- <node name="l2p" pkg="ackermann_vehicle_gazebo" type="l2p"/> -->
-
-    <!-- Keyboard driver -->
-    <rosparam file="$(find ackermann_vehicle_gazebo)/config/key_binding.yaml"/>
-    <node name="keyboard_driver_node" pkg="ackermann_vehicle_gazebo" type="keyboard_driver_node.py" output="screen"/>
-
-    <!-- Rviz -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d /home/mt-smjung-pc-ubuntu/rc_car/src/ackermann_vehicle_gazebo/config/config.rviz"/>
   </group>
 </launch>

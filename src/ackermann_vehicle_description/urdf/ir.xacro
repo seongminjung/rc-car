@@ -47,8 +47,8 @@
                         </horizontal>
                     </scan>
                     <range>
-                        <min>0.2</min>
-                        <max>0.6</max>
+                        <min>0.0</min>
+                        <max>50.0</max>
                     </range>
                     <noise>
                         <type>gaussian</type>
