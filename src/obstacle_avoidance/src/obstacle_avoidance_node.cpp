@@ -46,8 +46,8 @@ public:
     void control_once(float throttle, int servo)
     {
         ackermann_msgs::AckermannDrive msg;
-        msg.speed = throttle / 1000;
-        msg.steering_angle = servo / 1000;
+        msg.speed = throttle / 1000.0;
+        msg.steering_angle = servo / 10000.0;
         pub_.publish(msg);
     }
     void update_state()
@@ -65,7 +65,7 @@ public:
         {
             // go straight
             float diff = distance[0] - distance[3];
-            int corrected_servo = int(SERVO_CENTER + diff * 50);
+            int corrected_servo = int(SERVO_CENTER + diff * 200);
             control_once(THROTTLE_FORWARD, corrected_servo);
             break;
         }
@@ -85,7 +85,8 @@ public:
                     control_once(THROTTLE_FORWARD, SERVO_RIGHT);
                 }
             }
-            else if (distance[0] == IR_MAX && distance[3] == IR_MAX) // both side open
+            else
+            // else if (distance[0] == IR_MAX && distance[3] == IR_MAX) // both side open
             {
                 float diff = distance[1] - distance[2];
                 if (abs(diff) > 1) // if one front IR is bigger than other by 3cm
@@ -98,10 +99,10 @@ public:
                     control_once(THROTTLE_IDLE, SERVO_CENTER);
                 }
             }
-            else // both side closed
-            {
-                control_once(THROTTLE_IDLE, SERVO_CENTER);
-            }
+            // else // both side closed
+            // {
+            //     control_once(THROTTLE_IDLE, SERVO_CENTER);
+            // }
             break;
         }
         }
