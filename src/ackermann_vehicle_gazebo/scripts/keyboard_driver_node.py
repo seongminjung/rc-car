@@ -10,10 +10,10 @@ from geometry_msgs.msg import Twist
 
 MAX_VELOCITY = 1.0
 MAX_ROTATION = 3.0
-LINEAR_ACCEL = 2.0
-LINEAR_DECEL = 3.0
-ANGULAR_ACCEL = 6.0
-ANGULAR_DECEL = 6.0
+LINEAR_ACCEL = 10.0
+LINEAR_DECEL = 2.0
+ANGULAR_ACCEL = 50.0
+ANGULAR_DECEL = 50.0
 
 class KeyboardDriverNode():
     def __init__(self):

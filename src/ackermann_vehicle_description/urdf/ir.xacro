@@ -47,8 +47,8 @@
                         </horizontal>
                     </scan>
                     <range>
-                        <min>0.1</min>
-                        <max>1.80</max>
+                        <min>0.2</min>
+                        <max>0.6</max>
                     </range>
                     <noise>
                         <type>gaussian</type>
@@ -68,12 +68,12 @@
         </gazebo>
     </xacro:macro>
 
-    <xacro:ir_sensor name="front_center" x="0.1" y="0" yaw="0"/>
+    <!-- <xacro:ir_sensor name="front_center" x="0.1" y="0" yaw="0"/> -->
     <xacro:ir_sensor name="front_left" x="0.1" y="0.15" yaw="0"/>
     <xacro:ir_sensor name="front_right" x="0.1" y="-0.15" yaw="0"/>
     <xacro:ir_sensor name="left_front" x="0.05" y="0.15" yaw="1.57"/>
     <xacro:ir_sensor name="right_front" x="0.05" y="-0.15" yaw="-1.57"/>
-    <xacro:ir_sensor name="left_back" x="-0.25" y="0.15" yaw="1.57"/>
-    <xacro:ir_sensor name="right_back" x="-0.25" y="-0.15" yaw="-1.57"/>
+    <!-- <xacro:ir_sensor name="left_back" x="-0.25" y="0.15" yaw="1.57"/> -->
+    <!-- <xacro:ir_sensor name="right_back" x="-0.25" y="-0.15" yaw="-1.57"/> -->
 
 </robot>
