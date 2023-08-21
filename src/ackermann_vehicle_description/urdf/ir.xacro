@@ -15,6 +15,10 @@
         </visual>
     </link>
 
+    <gazebo reference="ir_base">
+        <material>Gazebo/Yellow</material>
+    </gazebo>
+
     <xacro:macro name="ir_sensor" params="name x y yaw">
         <joint name="iir_${name}_joint" type="fixed">
             <parent link="ir_base"/>
