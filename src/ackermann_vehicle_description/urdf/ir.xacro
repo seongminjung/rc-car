@@ -19,65 +19,55 @@
         <material>Gazebo/Yellow</material>
     </gazebo>
 
-    <xacro:macro name="ir_sensor" params="name x y yaw">
-        <joint name="iir_${name}_joint" type="fixed">
-            <parent link="ir_base"/>
-            <child link="ir_${name}"/>
-            <origin xyz="${x} ${y} 0.015" rpy="0 0 ${yaw}"/>
-        </joint>
-        
-        <link name="ir_${name}">
-            <visual>
-                <geometry>
-                    <box size="0.01 0.02 0.01"/>
-                </geometry>
-            </visual>
-        </link>
+    <joint name="ir_joint" type="fixed">
+        <parent link="ir_base"/>
+        <child link="ir"/>
+        <origin xyz="0 0 0.015" rpy="0 0 0"/>
+    </joint>
+    
+    <link name="ir">
+        <visual>
+            <geometry>
+                <box size="0.01 0.02 0.01"/>
+            </geometry>
+        </visual>
+    </link>
 
-        <gazebo reference="ir_${name}">
-            <material>Gazebo/Red</material>
+    <gazebo reference="ir">
+        <material>Gazebo/Red</material>
 
-            <sensor name="ir_${name}_sensor" type="ray">
-                <pose> 0 0 0 0 0 0 </pose>
-                <visualize>true</visualize>
-                <update_rate>1000</update_rate>
-                <ray>
-                    <scan>
-                        <horizontal>
-                            <samples>1</samples>
-                            <resolution>1</resolution>
-                            <min_angle>0</min_angle>
-                            <max_angle>0</max_angle>
-                        </horizontal>
-                    </scan>
-                    <range>
-                        <min>0.0</min>
-                        <max>50.0</max>
-                    </range>
-                    <noise>
-                        <type>gaussian</type>
-                        <!-- Noise parameters based on published spec for Hokuyo laser
-                            achieving "+-30mm" accuracy at range < 10m.  A mean of 0.0m and
-                            stddev of 0.01m will put 99.7% of samples within 0.03m of the true
-                            reading. -->
-                        <mean>0.0</mean>
-                        <stddev>0.01</stddev>
-                    </noise>
-                </ray>
-                <plugin name="laser_controller" filename="libgazebo_ros_laser.so">
-                    <topicName>ir/${name}</topicName>
-                    <frameName>/ir_${name}</frameName>
-                </plugin>
-            </sensor>
-        </gazebo>
-    </xacro:macro>
-
-    <!-- <xacro:ir_sensor name="front_center" x="0.1" y="0" yaw="0"/> -->
-    <xacro:ir_sensor name="front_left" x="0.1" y="0.15" yaw="0"/>
-    <xacro:ir_sensor name="front_right" x="0.1" y="-0.15" yaw="0"/>
-    <xacro:ir_sensor name="left_front" x="0.05" y="0.15" yaw="1.57"/>
-    <xacro:ir_sensor name="right_front" x="0.05" y="-0.15" yaw="-1.57"/>
-    <!-- <xacro:ir_sensor name="left_back" x="-0.25" y="0.15" yaw="1.57"/> -->
-    <!-- <xacro:ir_sensor name="right_back" x="-0.25" y="-0.15" yaw="-1.57"/> -->
-
+        <sensor name="ir_sensor" type="ray">
+            <pose> 0 0 0 0 0 0 </pose>
+            <visualize>true</visualize>
+            <update_rate>1000</update_rate>
+            <ray>
+                <scan>
+                    <horizontal>
+                        <samples>9</samples>
+                        <resolution>1</resolution>
+                        <!-- clockwise -->
+                        <min_angle>1.57</min_angle>
+                        <max_angle>-1.57</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.0</min>
+                    <max>50.0</max>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <!-- Noise parameters based on published spec for Hokuyo laser
+                        achieving "+-30mm" accuracy at range < 10m.  A mean of 0.0m and
+                        stddev of 0.01m will put 99.7% of samples within 0.03m of the true
+                        reading. -->
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </ray>
+            <plugin name="laser_controller" filename="libgazebo_ros_laser.so">
+                <topicName>ir</topicName>
+                <frameName>/ir</frameName>
+            </plugin>
+        </sensor>
+    </gazebo>
 </robot>
