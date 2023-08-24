@@ -7,11 +7,11 @@
 #define IR_MAX 80
 #define IR_MIN 20
 #define IR_OFFSET 7
-#define THROTTLE_FORWARD 500
+#define THROTTLE_FORWARD 1000  // 1000 is converted to 1
 #define THROTTLE_IDLE 0
-#define SERVO_LEFT 7878
+#define SERVO_LEFT 800  // 1000 is converted to 1
 #define SERVO_CENTER 0
-#define SERVO_RIGHT -7878
+#define SERVO_RIGHT -800  // 1000 is converted to 1
 
 class ObstacleAvoidance {
  public:
@@ -39,13 +39,15 @@ class ObstacleAvoidance {
 
     find_local_goal();
     adjust_wall_distance();
+    get_local_goal_speed();
     follow_goal();
   }
 
-  void control_once(float throttle, int servo) {
+  void control_once(int throttle, int servo) {
     ackermann_msgs::AckermannDrive msg;
+    // convert to actual input value
     msg.speed = throttle / 1000.0;
-    msg.steering_angle = servo / 10000.0;
+    msg.steering_angle = servo / 1000.0;
     pub_.publish(msg);
   }
 
@@ -109,9 +111,9 @@ class ObstacleAvoidance {
         max_group_center += groups[max_group_idx][i];
       }
       max_group_center /= groups[max_group_idx].size();
-      local_goal = (max_group_center - 5) * 22.5;
+      local_goal_angle = -1 * (max_group_center - 4) * 22.5;  // multiply -1
 
-      std::printf("local_goal: %.2f\n", local_goal);
+      std::printf("local_goal_angle: %.2f\n", local_goal_angle);
     }
   }
 
@@ -120,19 +122,29 @@ class ObstacleAvoidance {
     // respectively, and adjust the servo motor proportional to the difference
     // between the two.
     float diff = ir[0] - ir[8];
-    local_goal -= int(SERVO_CENTER + diff * 10.0);
+    local_goal_angle += diff * 1.0;
+    local_goal_angle =
+        std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
     std::printf("diff: %.2f\n", diff);
   }
 
+  void get_local_goal_speed() {
+    float a = 1.5, b = 0.5;
+    float r =
+        (a * b) / sqrt(b * b * cos(local_goal_angle) * cos(local_goal_angle) +
+                       a * a * sin(local_goal_angle) * sin(local_goal_angle));
+    local_goal_speed = r;
+  }
+
   void follow_goal() {
-    int angle =
-        std::min(std::max(int(SERVO_CENTER - local_goal * SERVO_LEFT / 90.0),
-                          SERVO_RIGHT),
-                 SERVO_LEFT);
+    int throttle = int(local_goal_speed * THROTTLE_FORWARD);
+    int servo = SERVO_LEFT * local_goal_angle / 90.0;
+    std::printf("final_goal_speed: %.2f\n", local_goal_speed);
+    std::printf("final_goal_angle: %.2f\n", local_goal_angle);
     if (emergency_stop) {
       control_once(THROTTLE_IDLE, SERVO_CENTER);
     } else {
-      control_once(THROTTLE_FORWARD, angle);
+      control_once(throttle, servo);
     }
   }
 
@@ -140,10 +152,9 @@ class ObstacleAvoidance {
   ros::NodeHandle n_;
   ros::Publisher pub_;
   ros::Subscriber sub_;
-  int state = 0;
-  int substate = 0;
   std::vector<float> ir;
-  float local_goal;
+  float local_goal_speed;
+  float local_goal_angle;
   bool emergency_stop = false;
 };
 
