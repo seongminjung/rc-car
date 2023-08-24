@@ -6,7 +6,7 @@
 
 #define IR_MAX 80
 #define IR_MIN 20
-#define IR_OFFSET 14
+#define IR_OFFSET 7
 #define THROTTLE_FORWARD 500
 #define THROTTLE_IDLE 0
 #define SERVO_LEFT 7878
@@ -24,10 +24,15 @@ class ObstacleAvoidance {
   void ir_callback(const sensor_msgs::LaserScan::ConstPtr &scan_in) {
     ir.clear();
     for (int i = 0; i < 9; i++) {
-      ir.push_back(
-          std::max(std::min(float(scan_in->ranges[i] * 100), (float)IR_MAX),
-                   (float)IR_MIN) -
-          IR_OFFSET);
+      if (std::isinf(scan_in->ranges[i])) {
+        // for Gazebo simulation
+        ir.push_back((float)IR_MAX);
+      } else {
+        ir.push_back(
+            std::max(std::min(float(scan_in->ranges[i] * 100), (float)IR_MAX),
+                     (float)IR_MIN) -
+            IR_OFFSET);
+      }
     }
     // if front three irs are less than 20, stop
     emergency_stop = ir[4] < IR_MIN && ir[5] < IR_MIN && ir[6] < IR_MIN;
