@@ -1,17 +1,20 @@
 #define THROTTLE_PIN 2
 #define SERVO_PIN 5
 
-#define IR_MAX 100000.0
-#define IR_MIN 0.0
-#define IR_THRESHOLD 40.0
+#define IR_MAX 70.0
+#define IR_MIN 20.0
 #define THROTTLE_FORWARD 3200
 #define THROTTLE_IDLE 3000
 #define SERVO_LEFT 2240
 #define SERVO_CENTER 3003
 #define SERVO_RIGHT 3858
 
-float adc_result[11], distance[11];
-int state = 0;
+int pin_list[11] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10};
+int sensor_type[11] = {0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1};  // 0: long, 1: short
+int get_result_clk = 0;
+int loopcount = 10;
+int adc_history[11][loopcount];
+float ir[11];  // array for IR distance values
 
 // analogWrite(PinNum, desired us / 2 -> (Ex: To get 900us -> 1800))
 // Analog Read 10 bit (based 5V), so result value 1023 is 5V
@@ -43,8 +46,11 @@ void setup() {
 
 void loop() {
   get_result();
-  update_state();
-  do_action();
+  find_local_goal();
+  adjust_wall_distance();
+  adjust_wall_parallel();
+  get_local_goal_speed();
+  follow_goal();
 }
 
 void control_once(int throttle, int servo) {
@@ -52,106 +58,162 @@ void control_once(int throttle, int servo) {
   analogWrite(SERVO_PIN, servo);
 }
 
-int killSpikes(){
-  int loopcount = 10; 
-  int sum=0,x=0,avg=0,high=0,low=0;
-
-  high=low=distance[10];
-  for(int i=0;i<loopcount;i++){
-    x=distance[i];
-    sum +=x;
-    if (x > high) high = x;
-    if (x < low) low = x;
-  }
-
-  return avg = (sum-high-low) / (loopcount-2);
-}
-
 void get_result() {
-  adc_result[0] = analogRead(A0);
-  adc_result[1] = map(analogRead(A1), 0, 1023, 0, 5000);
-  adc_result[2] = map(analogRead(A2), 0, 1023, 0, 5000);
-  adc_result[3] = analogRead(A3);
-  adc_result[4] = map(analogRead(A4), 0, 1023, 0, 5000);
-  adc_result[5] = analogRead(A5);
-  adc_result[6] = map(analogRead(A6), 0, 1023, 0, 5000);
-  adc_result[7] = map(analogRead(A7), 0, 1023, 0, 5000);
-  adc_result[8] = map(analogRead(A8), 0, 1023, 0, 5000);
-  adc_result[9] = map(analogRead(A9), 0, 1023, 0, 5000);
-  adc_result[10] = map(analogRead(A10), 0, 1023, 0, 5000);
+  // read analog value
+  for (int i = 0; i < 11; i++) {
+    adc_history[i][get_result_clk] = analogRead(pin_list[i]);
+  }
 
   for (int i = 0; i < 11; i++) {
-    if (i != 0 || i != 3 || i != 5) {
-      float filtered_data =
-          distance[i] * 0.8 + (27.61 / (adc_result[i] - 0.1696)) * 100;
-      distance[i] = filtered_data;
-//      max(min(filtered_data, IR_MAX), IR_MIN);
+    // kill spike and average
+    int sum = 0, x = 0, high = 0, low = 0, avg = 0;
+    high = low = adc_history[i][0];
+    for (int j = 0; j < loopcount; j++) {
+      x = adc_history[i][j];
+      sum += x;
+      if (x > high) high = x;
+      if (x < low) low = x;
+    }
+    avg = (sum - high - low) / (loopcount - 2);
+
+    // convert voltage to centimeter
+    if (sensor_type[i] == 0) {
+      ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937);
+    } else {
+      ir[i] = float((27.61 / (avg * 5000.0 / 1023.0 - 0.1696)) * 100.0);
+    }
+
+    // limit the range of IR distance
+    ir[i] = max(min(filtered_data, IR_MAX), IR_MIN);
+  }
+
+  get_result_clk++;
+  if (get_result_clk == 10) get_result_clk = 0;
+}
+
+void find_local_goal() {
+  float max_distance = 0;
+  std::vector<int> max_group;
+
+  // find the IR sensors with furthest distance
+  for (int i = 0; i < 10; i++) {
+    if (ir[i] > max_distance) {
+      max_distance = ir[i];
+      max_group.clear();
+      max_group.push_back(i);
+    } else if (ir[i] == max_distance) {
+      max_group.push_back(i);
     }
   }
-  distance[0] =
-      max(min(distance[0] * 0.8 +
-                  float(10650.08 * pow(adc_result[0], -0.935) - 3.937) * 0.2,
-              IR_MAX),
-          IR_MIN);
-  distance[3] =
-      max(min(distance[3] * 0.8 +
-                  float(10650.08 * pow(adc_result[3], -0.935) - 3.937) * 0.2,
-              IR_MAX),
-          IR_MIN);
-  distance[5] =
-      max(min(distance[5] * 0.8 +
-                  float(10650.08 * pow(adc_result[5], -0.935) - 3.937) * 0.2,
-              IR_MAX),
-          IR_MIN);
-  Serial.print(killSpikes());
-  Serial.println();
-}
+  // print the index of IR sensors with furthest distance
+  for (int i = 0; i < max_group.size(); i++) {
+    std::printf("%d  ", max_group[i]);
+  }
+  std::printf("\n");
 
-void update_state() {
-  if (distance[1] > IR_THRESHOLD && distance[11] > IR_THRESHOLD)
-    state = 0;  // front open
-  else
-    state = 1;  // front blocked
-}
+  if (max_group.size() > 0) {
+    // group the consecutive numbers. e.g. (2,3), (5,6,7,8)
+    std::vector<std::vector<int>> groups;
+    std::vector<int> group;
 
-void do_action() {
-  switch (state) {
-    case 0: {
-      // go straight
-      float diff = distance[0] - distance[3];
-      int corrected_servo = int(SERVO_CENTER + diff * 25.0);
-      control_once(THROTTLE_FORWARD, corrected_servo);
-      break;
-    }
-    case 1: {
-      if (distance[0] == IR_MAX && distance[3] < IR_MAX)  // left side open
-      {
-        for (int cnt = 0; cnt < 10000; cnt++) {
-          control_once(THROTTLE_FORWARD, SERVO_RIGHT);
-        }
-      } else if (distance[0] < IR_MAX &&
-                 distance[3] == IR_MAX)  // right side open
-      {
-        for (int cnt = 0; cnt < 10000; cnt++) {
-          control_once(THROTTLE_FORWARD, SERVO_LEFT);
-        }
-      } else if (distance[0] == IR_MAX &&
-                 distance[3] == IR_MAX)  // both side open
-      {
-        float diff = distance[1] - distance[2];
-        if (abs(diff) > 3)  // if one front IR is bigger than other by 3cm
-        {
-          int corrected_servo = int(SERVO_CENTER + (1 / diff) * 2000.0);
-          control_once(THROTTLE_FORWARD, corrected_servo);
-        } else  // two front IRs are similar
-        {
-          control_once(THROTTLE_IDLE, SERVO_CENTER);
-        }
-      } else  // both side closed
-      {
-        control_once(THROTTLE_IDLE, SERVO_CENTER);
+    group.push_back(max_group[0]);
+
+    for (int i = 1; i < max_group.size(); i++) {
+      if (max_group[i] == group.back() + 1) {
+        group.push_back(max_group[i]);
+      } else {
+        groups.push_back(group);
+        group.clear();
+        group.push_back(max_group[i]);
       }
-      break;
     }
+    groups.push_back(group);
+    std::printf("number of groups: %ld\t", groups.size());
+
+    // find the biggest group, and if two groups have the same size, find the
+    // group with bigger average distance
+    int max_group_size = 0;
+    int max_group_idx = 0;
+    float max_group_avg_distance = 0;
+
+    for (int i = 0; i < groups.size(); i++) {
+      if (groups[i].size() > max_group_size) {
+        max_group_size = groups[i].size();
+        max_group_idx = i;
+      }
+    }
+
+    std::printf("biggest group index: %d\n", max_group_idx);
+
+    // find the center of the biggest group
+    int max_group_center = 0;
+    for (int i = 0; i < groups[max_group_idx].size(); i++) {
+      max_group_center += groups[max_group_idx][i];
+    }
+    max_group_center /= groups[max_group_idx].size();
+    local_goal_angle = -1 * (max_group_center - 4) * 22.5;  // multiply -1
+
+    std::printf("local_goal_angle: %.2f\n", local_goal_angle);
+  }
+}
+
+void adjust_wall_distance() {
+  float diff = (ir[1] - ir[9]) * 0.5;
+  local_goal_angle += diff;
+  std::printf("distance adjust amount: %.2f\n", diff);
+}
+
+void adjust_one_side_parallel(int first, int second, int third, int direction) {
+  if (ir[first] == IR_MAX || ir[second] == IR_MAX || ir[third] == IR_MAX ||
+      ir[first] == IR_MIN || ir[second] == IR_MIN || ir[third] == IR_MIN)
+    return;  // cannot determine car-wall angle
+
+  float a = ir[first], b1 = ir[second], b2 = ir[third];
+  float c1, c2;
+  float theta = 22.5 * 3.14159 / 180.0;
+
+  // triangle between ir[0] and ir[1]
+  c1 = sqrt(a * a + b1 * b1 - 2 * a * b1 * cos(theta));
+  float alpha =
+      acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
+
+  // triangle between ir[0] and ir[2]
+  c2 = sqrt(a * a + b2 * b2 - 2 * a * b2 * cos(theta * 2));
+  float beta =
+      acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
+
+  if (abs(alpha - beta) > 20) return;  // not parallel
+
+  float ave_angle = (alpha + beta) * 0.5;
+  float diff_angle =
+      direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
+  local_goal_angle += diff_angle;
+  std::printf("parallel adjust amount: %.2f\n", diff_angle);
+}
+
+void adjust_wall_parallel() {
+  adjust_one_side_parallel(1, 2, 3, 1);
+  adjust_one_side_parallel(9, 8, 7, -1);
+}
+
+void get_local_goal_speed() {
+  float angle_rad = local_goal_angle * 3.14159 / 180.0;
+  float a = 1.5, b = 0.5;
+  float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) +
+                           a * a * sin(angle_rad) * sin(angle_rad));
+  local_goal_speed = r;
+}
+
+void follow_goal() {
+  local_goal_angle =
+      std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
+  int throttle = int(local_goal_speed * THROTTLE_FORWARD);
+  int servo = SERVO_LEFT * local_goal_angle / 90.0;
+  std::printf("final_goal_speed: %.2f\n", local_goal_speed);
+  std::printf("final_goal_angle: %.2f\n", local_goal_angle);
+  if (emergency_stop) {
+    control_once(THROTTLE_IDLE, SERVO_CENTER);
+  } else {
+    control_once(throttle, servo);
   }
 }

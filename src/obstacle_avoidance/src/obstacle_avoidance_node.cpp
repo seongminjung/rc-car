@@ -135,17 +135,17 @@ class ObstacleAvoidance {
 
     float a = ir[first], b1 = ir[second], b2 = ir[third];
     float c1, c2;
-    float theta = 22.5 * 3.14159 / 180;
+    float theta = 22.5 * 3.14159 / 180.0;
 
     // triangle between ir[0] and ir[1]
     c1 = sqrt(a * a + b1 * b1 - 2 * a * b1 * cos(theta));
     float alpha =
-        acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180 / 3.14159;
+        acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
 
     // triangle between ir[0] and ir[2]
     c2 = sqrt(a * a + b2 * b2 - 2 * a * b2 * cos(theta * 2));
     float beta =
-        acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180 / 3.14159;
+        acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
 
     if (abs(alpha - beta) > 20) return;  // not parallel
 
@@ -162,7 +162,7 @@ class ObstacleAvoidance {
   }
 
   void get_local_goal_speed() {
-    float angle_rad = local_goal_angle * 3.14159 / 180;
+    float angle_rad = local_goal_angle * 3.14159 / 180.0;
     float a = 1.5, b = 0.5;
     float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) +
                              a * a * sin(angle_rad) * sin(angle_rad));
