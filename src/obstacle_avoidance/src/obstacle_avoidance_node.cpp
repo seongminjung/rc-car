@@ -4,7 +4,7 @@
 #include "ros/ros.h"
 #include "sensor_msgs/LaserScan.h"
 
-#define IR_MAX 80
+#define IR_MAX 70
 #define IR_MIN 20
 #define IR_OFFSET 7
 #define THROTTLE_FORWARD 1000  // 1000 is converted to 1
@@ -122,11 +122,9 @@ class ObstacleAvoidance {
     // compare ir[0] and ir[8], which are the distances from left and right
     // respectively, and adjust the servo motor proportional to the difference
     // between the two.
-    float diff = ir[0] - ir[8];
-    local_goal_angle += diff * 0.5;
-    local_goal_angle =
-        std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
-    std::printf("diff: %.2f\n", diff);
+    float diff = (ir[0] - ir[8]) * 0.5;
+    local_goal_angle += diff;
+    std::printf("distance adjust amount: %.2f\n", diff);
   }
 
   void adjust_one_side_parallel(int first, int second, int third,
@@ -149,12 +147,13 @@ class ObstacleAvoidance {
     float beta =
         acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180 / 3.14159;
 
-    if (abs(alpha - beta) > 5) return;  // not parallel
+    if (abs(alpha - beta) > 20) return;  // not parallel
 
-    float ave_angle = (alpha + beta) / 2;
+    float ave_angle = (alpha + beta) * 0.5;
     float diff_angle =
-        direction * (ave_angle - 90);  // left wall: +, right wall: -
-    local_goal_angle += diff_angle * 0.5;
+        direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
+    local_goal_angle += diff_angle;
+    std::printf("parallel adjust amount: %.2f\n", diff_angle);
   }
 
   void adjust_wall_parallel() {
@@ -171,6 +170,8 @@ class ObstacleAvoidance {
   }
 
   void follow_goal() {
+    local_goal_angle =
+        std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
     int throttle = int(local_goal_speed * THROTTLE_FORWARD);
     int servo = SERVO_LEFT * local_goal_angle / 90.0;
     std::printf("final_goal_speed: %.2f\n", local_goal_speed);

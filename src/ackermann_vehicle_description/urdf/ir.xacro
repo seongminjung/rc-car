@@ -52,7 +52,7 @@
                 </scan>
                 <range>
                     <min>0.0</min>
-                    <max>0.87</max>
+                    <max>0.77</max>
                 </range>
                 <noise>
                     <type>gaussian</type>
