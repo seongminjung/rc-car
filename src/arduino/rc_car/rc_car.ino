@@ -1,3 +1,5 @@
+#include <vector>
+
 #define THROTTLE_PIN 2
 #define SERVO_PIN 5
 
