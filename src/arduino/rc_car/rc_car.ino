@@ -3,16 +3,16 @@
 
 #define IR_MAX 70.0
 #define IR_MIN 20.0
-#define THROTTLE_FORWARD 3200
-#define THROTTLE_IDLE 3000
-#define SERVO_LEFT 2240
-#define SERVO_CENTER 3003
-#define SERVO_RIGHT 3858
+#define THROTTLE_FORWARD 200
+#define THROTTLE_IDLE 0
+#define SERVO_LEFT -800
+#define SERVO_CENTER 0
+#define SERVO_RIGHT 800
 
 int pin_list[11] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10};
 int sensor_type[11] = {0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1};  // 0: long, 1: short
 int get_result_clk = 0;
-int loopcount = 10;
+int loopcount = 10;  // how many data to save for each sensor
 int adc_history[11][loopcount];
 float ir[11];  // array for IR distance values
 
@@ -54,8 +54,8 @@ void loop() {
 }
 
 void control_once(int throttle, int servo) {
-  analogWrite(THROTTLE_PIN, throttle);
-  analogWrite(SERVO_PIN, servo);
+  analogWrite(THROTTLE_PIN, throttle + 3000);
+  analogWrite(SERVO_PIN, servo + 3003);
 }
 
 void get_result() {
@@ -107,9 +107,10 @@ void find_local_goal() {
   }
   // print the index of IR sensors with furthest distance
   for (int i = 0; i < max_group.size(); i++) {
-    std::printf("%d  ", max_group[i]);
+    Serial.print(max_group[i]);
+    Serial.print("  ");
   }
-  std::printf("\n");
+  Serial.println();
 
   if (max_group.size() > 0) {
     // group the consecutive numbers. e.g. (2,3), (5,6,7,8)
@@ -128,7 +129,9 @@ void find_local_goal() {
       }
     }
     groups.push_back(group);
-    std::printf("number of groups: %ld\t", groups.size());
+    Serial.print("number of groups: ");
+    Serial.print(groups.size());
+    Serial.println();
 
     // find the biggest group, and if two groups have the same size, find the
     // group with bigger average distance
@@ -143,7 +146,9 @@ void find_local_goal() {
       }
     }
 
-    std::printf("biggest group index: %d\n", max_group_idx);
+    Serial.print("biggest group index: ");
+    Serial.print(max_group_idx);
+    Serial.println();
 
     // find the center of the biggest group
     int max_group_center = 0;
@@ -153,14 +158,18 @@ void find_local_goal() {
     max_group_center /= groups[max_group_idx].size();
     local_goal_angle = -1 * (max_group_center - 4) * 22.5;  // multiply -1
 
-    std::printf("local_goal_angle: %.2f\n", local_goal_angle);
+    Serial.print("local_goal_angle: ");
+    Serial.print(local_goal_angle);
+    Serial.println();
   }
 }
 
 void adjust_wall_distance() {
   float diff = (ir[1] - ir[9]) * 0.5;
   local_goal_angle += diff;
-  std::printf("distance adjust amount: %.2f\n", diff);
+  Serial.print("distance adjust amount: ");
+  Serial.print(diff);
+  Serial.println();
 }
 
 void adjust_one_side_parallel(int first, int second, int third, int direction) {
@@ -188,7 +197,9 @@ void adjust_one_side_parallel(int first, int second, int third, int direction) {
   float diff_angle =
       direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
   local_goal_angle += diff_angle;
-  std::printf("parallel adjust amount: %.2f\n", diff_angle);
+  Serial.print("parallel adjust amount: ");
+  Serial.print(diff_angle);
+  Serial.println();
 }
 
 void adjust_wall_parallel() {
@@ -207,13 +218,17 @@ void get_local_goal_speed() {
 void follow_goal() {
   local_goal_angle =
       std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
-  int throttle = int(local_goal_speed * THROTTLE_FORWARD);
+  int throttle = int(THROTTLE_IDLE + local_goal_speed * 200);
   int servo = SERVO_LEFT * local_goal_angle / 90.0;
-  std::printf("final_goal_speed: %.2f\n", local_goal_speed);
-  std::printf("final_goal_angle: %.2f\n", local_goal_angle);
   if (emergency_stop) {
     control_once(THROTTLE_IDLE, SERVO_CENTER);
   } else {
     control_once(throttle, servo);
   }
+  Serial.print("final_goal_speed: ");
+  Serial.print(local_goal_speed);
+  Serial.println();
+  Serial.print("final_goal_angle: ");
+  Serial.print(local_goal_angle);
+  Serial.println();
 }

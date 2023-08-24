@@ -9,9 +9,9 @@
 #define IR_OFFSET 7
 #define THROTTLE_FORWARD 1000  // 1000 is converted to 1
 #define THROTTLE_IDLE 0
-#define SERVO_LEFT 800  // 1000 is converted to 1
+#define SERVO_LEFT -800  // 1000 is converted to 1
 #define SERVO_CENTER 0
-#define SERVO_RIGHT -800  // 1000 is converted to 1
+#define SERVO_RIGHT 800  // 1000 is converted to 1
 
 class ObstacleAvoidance {
  public:
@@ -112,7 +112,7 @@ class ObstacleAvoidance {
         max_group_center += groups[max_group_idx][i];
       }
       max_group_center /= groups[max_group_idx].size();
-      local_goal_angle = -1 * (max_group_center - 4) * 22.5;  // multiply -1
+      local_goal_angle = (max_group_center - 4) * 22.5;  // multiply -1
 
       std::printf("local_goal_angle: %.2f\n", local_goal_angle);
     }
@@ -123,7 +123,7 @@ class ObstacleAvoidance {
     // respectively, and adjust the servo motor proportional to the difference
     // between the two.
     float diff = (ir[0] - ir[8]) * 0.5;
-    local_goal_angle += diff;
+    local_goal_angle -= diff;
     std::printf("distance adjust amount: %.2f\n", diff);
   }
 
@@ -152,7 +152,7 @@ class ObstacleAvoidance {
     float ave_angle = (alpha + beta) * 0.5;
     float diff_angle =
         direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
-    local_goal_angle += diff_angle;
+    local_goal_angle -= diff_angle;
     std::printf("parallel adjust amount: %.2f\n", diff_angle);
   }
 
