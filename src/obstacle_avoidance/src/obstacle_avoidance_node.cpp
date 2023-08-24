@@ -39,6 +39,7 @@ class ObstacleAvoidance {
 
     find_local_goal();
     adjust_wall_distance();
+    adjust_wall_parallel();
     get_local_goal_speed();
     follow_goal();
   }
@@ -122,17 +123,50 @@ class ObstacleAvoidance {
     // respectively, and adjust the servo motor proportional to the difference
     // between the two.
     float diff = ir[0] - ir[8];
-    local_goal_angle += diff * 1.0;
+    local_goal_angle += diff * 0.5;
     local_goal_angle =
         std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
     std::printf("diff: %.2f\n", diff);
   }
 
+  void adjust_one_side_parallel(int first, int second, int third,
+                                int direction) {
+    if (ir[first] == IR_MAX || ir[second] == IR_MAX || ir[third] == IR_MAX ||
+        ir[first] == IR_MIN || ir[second] == IR_MIN || ir[third] == IR_MIN)
+      return;  // cannot determine car-wall angle
+
+    float a = ir[first], b1 = ir[second], b2 = ir[third];
+    float c1, c2;
+    float theta = 22.5 * 3.14159 / 180;
+
+    // triangle between ir[0] and ir[1]
+    c1 = sqrt(a * a + b1 * b1 - 2 * a * b1 * cos(theta));
+    float alpha =
+        acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180 / 3.14159;
+
+    // triangle between ir[0] and ir[2]
+    c2 = sqrt(a * a + b2 * b2 - 2 * a * b2 * cos(theta * 2));
+    float beta =
+        acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180 / 3.14159;
+
+    if (abs(alpha - beta) > 5) return;  // not parallel
+
+    float ave_angle = (alpha + beta) / 2;
+    float diff_angle =
+        direction * (ave_angle - 90);  // left wall: +, right wall: -
+    local_goal_angle += diff_angle * 0.5;
+  }
+
+  void adjust_wall_parallel() {
+    adjust_one_side_parallel(0, 1, 2, 1);
+    adjust_one_side_parallel(8, 7, 6, -1);
+  }
+
   void get_local_goal_speed() {
+    float angle_rad = local_goal_angle * 3.14159 / 180;
     float a = 1.5, b = 0.5;
-    float r =
-        (a * b) / sqrt(b * b * cos(local_goal_angle) * cos(local_goal_angle) +
-                       a * a * sin(local_goal_angle) * sin(local_goal_angle));
+    float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) +
+                             a * a * sin(angle_rad) * sin(angle_rad));
     local_goal_speed = r;
   }
 
@@ -148,7 +182,7 @@ class ObstacleAvoidance {
     }
   }
 
- private:  // private으로 NodeHandle과 publisher, subscriber를 선언한다.
+ private:
   ros::NodeHandle n_;
   ros::Publisher pub_;
   ros::Subscriber sub_;
