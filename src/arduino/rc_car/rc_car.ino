@@ -154,7 +154,7 @@ void find_local_goal() {
       max_group_center += groups[max_group_idx][i];
     }
     max_group_center /= groups[max_group_idx].size();
-    local_goal_angle = -1 * (max_group_center - 4) * 22.5;  // multiply -1
+    local_goal_angle = (max_group_center - 4) * 22.5;
 
     Serial.print("local_goal_angle: ");
     Serial.print(local_goal_angle);
@@ -164,7 +164,7 @@ void find_local_goal() {
 
 void adjust_wall_distance() {
   float diff = (ir[1] - ir[9]) * 0.5;
-  local_goal_angle += diff;
+  local_goal_angle -= diff;
   Serial.print("distance adjust amount: ");
   Serial.print(diff);
   Serial.println();
@@ -194,7 +194,7 @@ void adjust_one_side_parallel(int first, int second, int third, int direction) {
   float ave_angle = (alpha + beta) * 0.5;
   float diff_angle =
       direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
-  local_goal_angle += diff_angle;
+  local_goal_angle -= diff_angle;
   Serial.print("parallel adjust amount: ");
   Serial.print(diff_angle);
   Serial.println();
@@ -216,7 +216,7 @@ void get_local_goal_speed() {
 void follow_goal() {
   local_goal_angle =
       std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
-  int throttle = int(THROTTLE_IDLE + local_goal_speed * 200);
+  int throttle = int(local_goal_speed * THROTTLE_FORWARD);
   int servo = SERVO_LEFT * local_goal_angle / 90.0;
   if (emergency_stop) {
     control_once(THROTTLE_IDLE, SERVO_CENTER);
