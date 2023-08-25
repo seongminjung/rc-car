@@ -135,19 +135,15 @@ void find_local_goal() {
     Serial.print(groups.size());
     Serial.println();
 
-    // find the biggest group, and if two groups have the same size, find the
-    // group with bigger average distance
+    // find the biggest group
     int max_group_size = 0;
     int max_group_idx = 0;
-    float max_group_avg_distance = 0;
-
     for (int i = 0; i < groups.size(); i++) {
       if (groups[i].size() > max_group_size) {
         max_group_size = groups[i].size();
         max_group_idx = i;
       }
     }
-
     Serial.print("biggest group index: ");
     Serial.print(max_group_idx);
     Serial.println();
