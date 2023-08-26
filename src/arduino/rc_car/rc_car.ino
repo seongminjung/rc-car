@@ -1,4 +1,4 @@
-#include <vector>
+#include <Arduino_AVRSTL.h>
 
 #define THROTTLE_PIN 2
 #define SERVO_PIN 5
@@ -12,11 +12,14 @@
 #define SERVO_RIGHT 800
 
 int pin_list[11] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10};
-int sensor_type[11] = {0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1};  // 0: long, 1: short
+int sensor_type[11] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1};  // 0: long, 1: short
 int get_result_clk = 0;
 int loopcount = 10;  // how many data to save for each sensor
-int adc_history[11][loopcount];
-float ir[11];  // array for IR distance values
+int adc_history[11][10];
+float ir[11] = {70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0};  // array for IR distance values
+float local_goal_speed = 0;
+float local_goal_angle = 0;
+bool emergency_stop = false;
 
 // analogWrite(PinNum, desired us / 2 -> (Ex: To get 900us -> 1800))
 // Analog Read 10 bit (based 5V), so result value 1023 is 5V
@@ -43,7 +46,11 @@ void setup() {
   TCCR3B |= 2;  // Prescale=8, Enable Timer
 
   // For Serial print
-  Serial.begin(1200);
+  Serial.begin(115200);
+
+  for (int i = 0; i < 20000; i++) {
+    analogWrite(2, 3000);
+  }
 }
 
 void loop() {
@@ -82,11 +89,28 @@ void get_result() {
     if (sensor_type[i] == 0) {
       ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937);
     } else {
-      ir[i] = float((27.61 / (avg * 5000.0 / 1023.0 - 0.1696)) * 100.0);
+      ir[i] = float((27.61 / (avg * 5000.0 / 1023.0 - 0.1696)) * 1000.0);
     }
 
     // limit the range of IR distance
-    ir[i] = max(min(filtered_data, IR_MAX), IR_MIN);
+    ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
+
+    if (ir[5] < 30)
+    {
+      emergency_stop = 1;
+    }
+    
+//    Serial.print(ir[1]);
+//    Serial.print(ir[2]);
+//    Serial.print(ir[3]);
+//    Serial.print(ir[4]);
+//    Serial.print(ir[5]);
+//    Serial.print(ir[6]);
+//    Serial.print(ir[7]);
+//    Serial.print(ir[8]);
+//    Serial.print(ir[9]);
+//    Serial.print(ir[10]);
+//    Serial.println();
   }
 
   get_result_clk++;
@@ -98,7 +122,7 @@ void find_local_goal() {
   std::vector<int> max_group;
 
   // find the IR sensors with furthest distance
-  for (int i = 0; i < 10; i++) {
+  for (int i = 1; i < 10; i++) {
     if (ir[i] > max_distance) {
       max_distance = ir[i];
       max_group.clear();
@@ -109,10 +133,10 @@ void find_local_goal() {
   }
   // print the index of IR sensors with furthest distance
   for (int i = 0; i < max_group.size(); i++) {
-    Serial.print(max_group[i]);
-    Serial.print("  ");
+//    Serial.print(max_group[i]);
+//    Serial.print("  ");
   }
-  Serial.println();
+//  Serial.println();
 
   if (max_group.size() > 0) {
     // group the consecutive numbers. e.g. (2,3), (5,6,7,8)
@@ -131,9 +155,9 @@ void find_local_goal() {
       }
     }
     groups.push_back(group);
-    Serial.print("number of groups: ");
-    Serial.print(groups.size());
-    Serial.println();
+//    Serial.print("number of groups: ");
+//    Serial.print(groups.size());
+//    Serial.println();
 
     // find the biggest group, and if two groups have the same size, find the
     // group with bigger average distance
@@ -148,9 +172,9 @@ void find_local_goal() {
       }
     }
 
-    Serial.print("biggest group index: ");
-    Serial.print(max_group_idx);
-    Serial.println();
+//    Serial.print("biggest group index: ");
+//    Serial.print(max_group_idx);
+//    Serial.println();
 
     // find the center of the biggest group
     int max_group_center = 0;
@@ -158,20 +182,20 @@ void find_local_goal() {
       max_group_center += groups[max_group_idx][i];
     }
     max_group_center /= groups[max_group_idx].size();
-    local_goal_angle = -1 * (max_group_center - 4) * 22.5;  // multiply -1
+    local_goal_angle = (max_group_center - 5) * 22.5;
 
-    Serial.print("local_goal_angle: ");
-    Serial.print(local_goal_angle);
-    Serial.println();
+//    Serial.print("local_goal_angle: ");
+//    Serial.print(local_goal_angle);
+//    Serial.println();
   }
 }
 
 void adjust_wall_distance() {
   float diff = (ir[1] - ir[9]) * 0.5;
-  local_goal_angle += diff;
-  Serial.print("distance adjust amount: ");
-  Serial.print(diff);
-  Serial.println();
+  local_goal_angle -= diff;
+//  Serial.print("distance adjust amount: ");
+//  Serial.print(diff);
+//  Serial.println();
 }
 
 void adjust_one_side_parallel(int first, int second, int third, int direction) {
@@ -186,22 +210,23 @@ void adjust_one_side_parallel(int first, int second, int third, int direction) {
   // triangle between ir[0] and ir[1]
   c1 = sqrt(a * a + b1 * b1 - 2 * a * b1 * cos(theta));
   float alpha =
-      acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
+    acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
 
   // triangle between ir[0] and ir[2]
   c2 = sqrt(a * a + b2 * b2 - 2 * a * b2 * cos(theta * 2));
   float beta =
-      acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
+    acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
 
   if (abs(alpha - beta) > 20) return;  // not parallel
 
-  float ave_angle = (alpha + beta) * 0.5;
+//  float ave_angle = (alpha + beta) * 0.5;
+  float ave_angle = alpha;
   float diff_angle =
-      direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
-  local_goal_angle += diff_angle;
-  Serial.print("parallel adjust amount: ");
-  Serial.print(diff_angle);
-  Serial.println();
+    direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
+  local_goal_angle -= diff_angle;
+//  Serial.print("parallel adjust amount: ");
+//  Serial.print(diff_angle);
+//  Serial.println();
 }
 
 void adjust_wall_parallel() {
@@ -211,7 +236,7 @@ void adjust_wall_parallel() {
 
 void get_local_goal_speed() {
   float angle_rad = local_goal_angle * 3.14159 / 180.0;
-  float a = 1.5, b = 0.5;
+  float a = 1.25, b = 1.0;
   float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) +
                            a * a * sin(angle_rad) * sin(angle_rad));
   local_goal_speed = r;
@@ -219,7 +244,7 @@ void get_local_goal_speed() {
 
 void follow_goal() {
   local_goal_angle =
-      std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
+    std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
   int throttle = int(THROTTLE_IDLE + local_goal_speed * 200);
   int servo = SERVO_LEFT * local_goal_angle / 90.0;
   if (emergency_stop) {
@@ -227,10 +252,10 @@ void follow_goal() {
   } else {
     control_once(throttle, servo);
   }
-  Serial.print("final_goal_speed: ");
-  Serial.print(local_goal_speed);
-  Serial.println();
-  Serial.print("final_goal_angle: ");
-  Serial.print(local_goal_angle);
-  Serial.println();
+//  Serial.print("final_goal_speed: ");
+//  Serial.print(local_goal_speed);
+//  Serial.println();
+//  Serial.print("final_goal_angle: ");
+//  Serial.print(local_goal_angle);
+//  Serial.println();
 }
