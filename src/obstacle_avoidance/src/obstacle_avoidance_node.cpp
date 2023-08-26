@@ -91,19 +91,15 @@ class ObstacleAvoidance {
       groups.push_back(group);
       std::printf("number of groups: %ld\t", groups.size());
 
-      // find the biggest group, and if two groups have the same size, find the
-      // group with bigger average distance
+      // find the biggest group
       int max_group_size = 0;
       int max_group_idx = 0;
-      float max_group_avg_distance = 0;
-
       for (int i = 0; i < groups.size(); i++) {
         if (groups[i].size() > max_group_size) {
           max_group_size = groups[i].size();
           max_group_idx = i;
         }
       }
-
       std::printf("biggest group index: %d\n", max_group_idx);
 
       // find the center of the biggest group
@@ -173,7 +169,7 @@ class ObstacleAvoidance {
     local_goal_angle =
         std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
     int throttle = int(local_goal_speed * THROTTLE_FORWARD);
-    int servo = SERVO_LEFT * local_goal_angle / 90.0;
+    int servo = int(SERVO_LEFT * local_goal_angle / 90.0);
     std::printf("final_goal_speed: %.2f\n", local_goal_speed);
     std::printf("final_goal_angle: %.2f\n", local_goal_angle);
     if (emergency_stop) {

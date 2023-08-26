@@ -15,11 +15,8 @@ int pin_list[11] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10};
 int sensor_type[11] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1};  // 0: long, 1: short
 int get_result_clk = 0;
 int loopcount = 10;  // how many data to save for each sensor
-int adc_history[11][10];
-float ir[11] = {70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0};  // array for IR distance values
-float local_goal_speed = 0;
-float local_goal_angle = 0;
-bool emergency_stop = false;
+int adc_history[11][loopcount];
+float ir[11];  // array for IR distance values
 
 // analogWrite(PinNum, desired us / 2 -> (Ex: To get 900us -> 1800))
 // Analog Read 10 bit (based 5V), so result value 1023 is 5V
@@ -159,12 +156,9 @@ void find_local_goal() {
 //    Serial.print(groups.size());
 //    Serial.println();
 
-    // find the biggest group, and if two groups have the same size, find the
-    // group with bigger average distance
+    // find the biggest group
     int max_group_size = 0;
     int max_group_idx = 0;
-    float max_group_avg_distance = 0;
-
     for (int i = 0; i < groups.size(); i++) {
       if (groups[i].size() > max_group_size) {
         max_group_size = groups[i].size();
@@ -244,8 +238,8 @@ void get_local_goal_speed() {
 
 void follow_goal() {
   local_goal_angle =
-    std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
-  int throttle = int(THROTTLE_IDLE + local_goal_speed * 200);
+      std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
+  int throttle = int(local_goal_speed * THROTTLE_FORWARD);
   int servo = SERVO_LEFT * local_goal_angle / 90.0;
   if (emergency_stop) {
     control_once(THROTTLE_IDLE, SERVO_CENTER);
