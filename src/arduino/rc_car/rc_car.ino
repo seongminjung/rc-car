@@ -15,8 +15,7 @@ int pin_list[11] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10};
 int sensor_type[11] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1};  // 0: long, 1: short
 int get_result_clk = 0;
 int loopcount = 10;  // how many data to save for each sensor
-int adc_history[11][loopcount];
-
+int adc_history[11][10];
 float ir[11] = {70.0, 70.0, 70.0, 70.0, 70.0, 70.0,
                 70.0, 70.0, 70.0, 70.0, 70.0};  // array for IR distance values
 
