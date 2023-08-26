@@ -16,7 +16,13 @@ int sensor_type[11] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1};  // 0: long, 1: short
 int get_result_clk = 0;
 int loopcount = 10;  // how many data to save for each sensor
 int adc_history[11][loopcount];
-float ir[11];  // array for IR distance values
+
+float ir[11] = {70.0, 70.0, 70.0, 70.0, 70.0, 70.0,
+                70.0, 70.0, 70.0, 70.0, 70.0};  // array for IR distance values
+
+float local_goal_speed = 0;
+float local_goal_angle = 0;
+bool emergency_stop = false;
 
 // analogWrite(PinNum, desired us / 2 -> (Ex: To get 900us -> 1800))
 // Analog Read 10 bit (based 5V), so result value 1023 is 5V
