@@ -176,7 +176,7 @@ class ObstacleAvoidance {
       return;
     }
     float angle_rad = local_goal_angle * 3.14159 / 180.0;
-    float a = 1.5, b = 0.5;
+    float a = 1.0, b = 0.5;
     float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) +
                              a * a * sin(angle_rad) * sin(angle_rad));
     local_goal_speed = r;
@@ -197,8 +197,8 @@ class ObstacleAvoidance {
   ros::Publisher pub_;
   ros::Subscriber sub_;
   std::vector<float> ir;
-  float local_goal_speed;
-  float local_goal_angle;
+  float local_goal_speed = 0;
+  float local_goal_angle = 0;
   bool emergency_stop = false;
   int prev_turn = 0;
 };
