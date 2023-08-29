@@ -29,13 +29,13 @@ class ObstacleAvoidance {
         ir.push_back((float)IR_MAX);
       } else {
         ir.push_back(
-            std::max(std::min(float(scan_in->ranges[i] * 100), (float)IR_MAX),
-                     (float)IR_MIN) -
-            IR_OFFSET);
+            std::max(std::min(float(scan_in->ranges[i] * 100 - IR_OFFSET),
+                              float(IR_MAX)),
+                     float(IR_MIN)));
       }
     }
     // if front three irs are less than 20, stop
-    emergency_stop = ir[4] < IR_MIN && ir[5] < IR_MIN && ir[6] < IR_MIN;
+    emergency_stop = ir[3] == IR_MIN && ir[4] == IR_MIN && ir[5] == IR_MIN;
 
     find_local_goal();
     adjust_wall_distance();
@@ -53,11 +53,17 @@ class ObstacleAvoidance {
   }
 
   void find_local_goal() {
+    if (ir[3] == IR_MAX && ir[4] == IR_MAX && ir[5] == IR_MAX) {
+      // if front three irs are all max, go straight
+      local_goal_angle = 0;
+      return;
+    }
+
     float max_distance = 0;
     std::vector<int> max_group;
 
     // find the IR sensors with furthest distance
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 9; i++) {
       if (ir[i] > max_distance) {
         max_distance = ir[i];
         max_group.clear();
@@ -118,6 +124,8 @@ class ObstacleAvoidance {
     // compare ir[0] and ir[8], which are the distances from left and right
     // respectively, and adjust the servo motor proportional to the difference
     // between the two.
+    if ((ir[0] == IR_MAX) != (ir[8] == IR_MAX))
+      return;  // better to follow wall
     float diff = (ir[0] - ir[8]) * 0.5;
     local_goal_angle -= diff;
     std::printf("distance adjust amount: %.2f\n", diff);
@@ -147,7 +155,7 @@ class ObstacleAvoidance {
 
     float ave_angle = (alpha + beta) * 0.5;
     float diff_angle =
-        direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
+        direction * (ave_angle - 90) * 1.0;  // left wall: +, right wall: -
     local_goal_angle -= diff_angle;
     std::printf("parallel adjust amount: %.2f\n", diff_angle);
   }
@@ -158,6 +166,11 @@ class ObstacleAvoidance {
   }
 
   void get_local_goal_speed() {
+    if (emergency_stop) {
+      std::printf("emergency stop!\n");
+      local_goal_speed = 0;
+      return;
+    }
     float angle_rad = local_goal_angle * 3.14159 / 180.0;
     float a = 1.5, b = 0.5;
     float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) +
@@ -172,11 +185,7 @@ class ObstacleAvoidance {
     int servo = int(SERVO_LEFT * local_goal_angle / 90.0);
     std::printf("final_goal_speed: %.2f\n", local_goal_speed);
     std::printf("final_goal_angle: %.2f\n", local_goal_angle);
-    if (emergency_stop) {
-      control_once(THROTTLE_IDLE, SERVO_CENTER);
-    } else {
-      control_once(throttle, servo);
-    }
+    control_once(throttle, servo);
   }
 
  private:

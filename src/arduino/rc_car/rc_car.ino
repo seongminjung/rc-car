@@ -3,7 +3,7 @@
 #define THROTTLE_PIN 2
 #define SERVO_PIN 5
 
-#define IR_MAX 70.0
+#define IR_MAX 80.0
 #define IR_MIN 20.0
 #define THROTTLE_FORWARD 200
 #define THROTTLE_IDLE 0
@@ -11,18 +11,22 @@
 #define SERVO_CENTER 0
 #define SERVO_RIGHT 800
 
+#define FRONT_LIMIT 80
+#define NOISE_ALLOWANCE 5
+#define MAX_THROTTLE 3250
+
 int pin_list[11] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10};
 int sensor_type[11] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1};  // 0: long, 1: short
 int get_result_clk = 0;
-int loopcount = 10;  // how many data to save for each sensor
-int adc_history[11][10];
+const int loopcount = 5;  // how many data to save for each sensor in killspike
+int adc_history[11][loopcount];
 float ir[11] = {70.0, 70.0, 70.0, 70.0, 70.0, 70.0,
                 70.0, 70.0, 70.0, 70.0, 70.0};  // array for IR distance values
 
 float local_goal_speed = 0;
 float local_goal_angle = 0;
-bool emergency_stop = false;
-
+int emergency_stop = 0;
+int prev_turn = 0;
 // analogWrite(PinNum, desired us / 2 -> (Ex: To get 900us -> 1800))
 // Analog Read 10 bit (based 5V), so result value 1023 is 5V
 
@@ -48,11 +52,12 @@ void setup() {
   TCCR3B |= 2;  // Prescale=8, Enable Timer
 
   // For Serial print
-  Serial.begin(115200);
+  Serial.begin(1200);
 
   for (int i = 0; i < 20000; i++) {
     analogWrite(2, 3000);
   }
+  emergency_stop = 0;
 }
 
 void loop() {
@@ -95,31 +100,53 @@ void get_result() {
     }
 
     // limit the range of IR distance
-    ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
+    if (i == 5)
+      ir[i] = std::max(std::min(ir[i], float(FRONT_LIMIT)), float(IR_MIN));
+    else
+      ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
 
-    if (ir[5] < 30)
-    {
-      emergency_stop = 1;
-    }
-    
-//    Serial.print(ir[1]);
-//    Serial.print(ir[2]);
-//    Serial.print(ir[3]);
-//    Serial.print(ir[4]);
-//    Serial.print(ir[5]);
-//    Serial.print(ir[6]);
-//    Serial.print(ir[7]);
-//    Serial.print(ir[8]);
-//    Serial.print(ir[9]);
-//    Serial.print(ir[10]);
-//    Serial.println();
+    //    Serial.print(ir[1]);
+    //    Serial.print('\t');
+    //    Serial.print(ir[2]);
+    //    Serial.print('\t');
+    //    Serial.print(ir[3]);
+    //  Serial.print('\t');
+    //    Serial.print(ir[4]);
+    //     Serial.print('\t');
+    //    Serial.print(ir[5]);
+    //     Serial.print('\t');
+    //    Serial.print(ir[6]);
+    //     Serial.print('\t');
+    //    Serial.print(ir[7]);
+    //     Serial.print('\t');
+    //    Serial.print(ir[8]);
+    //     Serial.print('\t');
+    //    Serial.print(ir[9]);
+    //     Serial.print('\t');
+    //    Serial.print(ir[10]);
+    //    Serial.println();
   }
 
+  if (ir[5] < 30 || ir[3] < 24 || ir[7] < 24 || ir[6] < 30 || ir[4] < 30) {
+    emergency_stop += 1;
+  } else if (emergency_stop < 2) {
+    emergency_stop = 0;
+  }
+
+  Serial.print(emergency_stop);
+  Serial.println();
+
   get_result_clk++;
-  if (get_result_clk == 10) get_result_clk = 0;
+  if (get_result_clk == loopcount) get_result_clk = 0;
 }
 
 void find_local_goal() {
+  if (ir[4] == IR_MAX && ir[5] == IR_MAX && ir[6] == IR_MAX) {
+    // if front three irs are all max, go straight
+    local_goal_angle = 0;
+    return;
+  }
+
   float max_distance = 0;
   std::vector<int> max_group;
 
@@ -129,16 +156,16 @@ void find_local_goal() {
       max_distance = ir[i];
       max_group.clear();
       max_group.push_back(i);
-    } else if (ir[i] == max_distance) {
+    } else if (ir[i] >= max_distance - NOISE_ALLOWANCE) {
       max_group.push_back(i);
     }
   }
   // print the index of IR sensors with furthest distance
-  for (int i = 0; i < max_group.size(); i++) {
-//    Serial.print(max_group[i]);
-//    Serial.print("  ");
-  }
-//  Serial.println();
+  //  for (int i = 0; i < max_group.size(); i++) {
+  //    Serial.print(max_group[i]);
+  //    Serial.print("  ");
+  //  }
+  //  Serial.println();
 
   if (max_group.size() > 0) {
     // group the consecutive numbers. e.g. (2,3), (5,6,7,8)
@@ -157,9 +184,9 @@ void find_local_goal() {
       }
     }
     groups.push_back(group);
-//    Serial.print("number of groups: ");
-//    Serial.print(groups.size());
-//    Serial.println();
+    //    Serial.print("number of groups: ");
+    //    Serial.print(groups.size());
+    //    Serial.println();
 
     // find the biggest group
     int max_group_size = 0;
@@ -168,12 +195,16 @@ void find_local_goal() {
       if (groups[i].size() > max_group_size) {
         max_group_size = groups[i].size();
         max_group_idx = i;
+      } else if (groups[i].size() == max_group_size) {
+        max_group_idx = ir[4] > ir[6] ? 0 : 1;
+        if (abs(ir[4] - ir[6]) < NOISE_ALLOWANCE) max_group_idx = prev_turn;
+        prev_turn = max_group_idx;
       }
     }
 
-//    Serial.print("biggest group index: ");
-//    Serial.print(max_group_idx);
-//    Serial.println();
+    //    Serial.print("biggest group index: ");
+    //    Serial.print(max_group_idx);
+    //    Serial.println();
 
     // find the center of the biggest group
     int max_group_center = 0;
@@ -183,18 +214,19 @@ void find_local_goal() {
     max_group_center /= groups[max_group_idx].size();
     local_goal_angle = (max_group_center - 5) * 22.5;
 
-//    Serial.print("local_goal_angle: ");
-//    Serial.print(local_goal_angle);
-//    Serial.println();
+    //    Serial.print("local_goal_angle: ");
+    //    Serial.print(local_goal_angle);
+    //    Serial.println();
   }
 }
 
 void adjust_wall_distance() {
+  if ((ir[1] == IR_MAX) != (ir[9] == IR_MAX)) return;  // better to follow wall
   float diff = (ir[1] - ir[9]) * 0.5;
   local_goal_angle -= diff;
-//  Serial.print("distance adjust amount: ");
-//  Serial.print(diff);
-//  Serial.println();
+  //  Serial.print("distance adjust amount: ");
+  //  Serial.print(diff);
+  //  Serial.println();
 }
 
 void adjust_one_side_parallel(int first, int second, int third, int direction) {
@@ -209,23 +241,25 @@ void adjust_one_side_parallel(int first, int second, int third, int direction) {
   // triangle between ir[0] and ir[1]
   c1 = sqrt(a * a + b1 * b1 - 2 * a * b1 * cos(theta));
   float alpha =
-    acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
+      acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
 
   // triangle between ir[0] and ir[2]
   c2 = sqrt(a * a + b2 * b2 - 2 * a * b2 * cos(theta * 2));
   float beta =
-    acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
+      acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
 
-  if (abs(alpha - beta) > 20) return;  // not parallel
+  if (abs(alpha - beta) < 20) {
+    float ave_angle = (alpha + beta) * 0.5;
+  } else {
+    float ave_angle = alpha;
+  }
 
-//  float ave_angle = (alpha + beta) * 0.5;
-  float ave_angle = alpha;
   float diff_angle =
-    direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
+      direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
   local_goal_angle -= diff_angle;
-//  Serial.print("parallel adjust amount: ");
-//  Serial.print(diff_angle);
-//  Serial.println();
+  //  Serial.print("parallel adjust amount: ");
+  //  Serial.print(diff_angle);
+  //  Serial.println();
 }
 
 void adjust_wall_parallel() {
@@ -246,15 +280,18 @@ void follow_goal() {
       std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
   int throttle = int(local_goal_speed * THROTTLE_FORWARD);
   int servo = SERVO_LEFT * local_goal_angle / 90.0;
-  if (emergency_stop) {
-    control_once(THROTTLE_IDLE, SERVO_CENTER);
+  //  Serial.print(emergency_stop);
+  //  Serial.println();
+  if (emergency_stop >= 2) {
+    control_once(THROTTLE_IDLE, servo);
   } else {
     control_once(throttle, servo);
   }
-//  Serial.print("final_goal_speed: ");
-//  Serial.print(local_goal_speed);
-//  Serial.println();
-//  Serial.print("final_goal_angle: ");
-//  Serial.print(local_goal_angle);
-//  Serial.println();
+
+  //  Serial.print("final_goal_speed: ");
+  //  Serial.print(local_goal_speed);
+  //  Serial.println();
+  //  Serial.print("final_goal_angle: ");
+  //  Serial.print(local_goal_angle);
+  //  Serial.println();
 }

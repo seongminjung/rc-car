@@ -39,6 +39,7 @@ limitations under the License.
   <arg name="namespace" default="/rc_car"/>
   <!-- <arg name="world_name" default="worlds/empty.world"/> -->
   <!-- <arg name="world_name" value="$(find aws_robomaker_racetrack_world)/worlds/racetrack_day.world"/> -->
+  <!-- <arg name="world_name" value="$(find aws_robomaker_small_house_world)/worlds/small_house.world"/> -->
   <arg name="world_name" value="$(find ackermann_vehicle_gazebo)/worlds/cube.world"/>
   <arg name="cmd_timeout" default="0.5"/>
 
