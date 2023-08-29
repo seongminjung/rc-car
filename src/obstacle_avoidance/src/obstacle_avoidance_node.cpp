@@ -104,6 +104,10 @@ class ObstacleAvoidance {
         if (groups[i].size() > max_group_size) {
           max_group_size = groups[i].size();
           max_group_idx = i;
+        } else if (groups[i].size() == max_group_size) {
+          max_group_idx = ir[3] > ir[5] ? 0 : 1;
+          if (abs(ir[3] - ir[5]) < 5) max_group_idx = prev_turn;
+          prev_turn = max_group_idx;
         }
       }
       std::printf("biggest group index: %d\n", max_group_idx);
@@ -196,6 +200,7 @@ class ObstacleAvoidance {
   float local_goal_speed;
   float local_goal_angle;
   bool emergency_stop = false;
+  int prev_turn = 0;
 };
 
 int main(int argc, char **argv) {
