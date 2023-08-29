@@ -52,7 +52,7 @@ void setup() {
   TCCR3B |= 2;  // Prescale=8, Enable Timer
 
   // For Serial print
-  Serial.begin(1200);
+  Serial.begin(115200);
 
   for (int i = 0; i < 20000; i++) {
     analogWrite(2, 3000);
@@ -105,26 +105,26 @@ void get_result() {
     else
       ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
 
-    //    Serial.print(ir[1]);
-    //    Serial.print('\t');
-    //    Serial.print(ir[2]);
-    //    Serial.print('\t');
-    //    Serial.print(ir[3]);
-    //  Serial.print('\t');
-    //    Serial.print(ir[4]);
-    //     Serial.print('\t');
-    //    Serial.print(ir[5]);
-    //     Serial.print('\t');
-    //    Serial.print(ir[6]);
-    //     Serial.print('\t');
-    //    Serial.print(ir[7]);
-    //     Serial.print('\t');
-    //    Serial.print(ir[8]);
-    //     Serial.print('\t');
-    //    Serial.print(ir[9]);
-    //     Serial.print('\t');
-    //    Serial.print(ir[10]);
-    //    Serial.println();
+    Serial.print(ir[1]);
+    Serial.print('\t');
+    Serial.print(ir[2]);
+    Serial.print('\t');
+    Serial.print(ir[3]);
+    Serial.print('\t');
+    Serial.print(ir[4]);
+    Serial.print('\t');
+    Serial.print(ir[5]);
+    Serial.print('\t');
+    Serial.print(ir[6]);
+    Serial.print('\t');
+    Serial.print(ir[7]);
+    Serial.print('\t');
+    Serial.print(ir[8]);
+    Serial.print('\t');
+    Serial.print(ir[9]);
+    Serial.print('\t');
+    Serial.print(ir[10]);
+    Serial.println();
   }
 
   if (ir[5] < 30 || ir[3] < 24 || ir[7] < 24 || ir[6] < 30 || ir[4] < 30) {
@@ -144,6 +144,20 @@ void find_local_goal() {
   if (ir[4] == IR_MAX && ir[5] == IR_MAX && ir[6] == IR_MAX) {
     // if front three irs are all max, go straight
     local_goal_angle = 0;
+    return;
+  }
+
+  if (ir[4] < IR_MAX && ir[5] < IR_MAX && ir[6] < IR_MAX) {
+    if (ir[1] > ir[9]) {
+      local_goal_angle = -90;
+    Serial.print("a");
+    }
+    else if (ir[1] < ir[9]) {
+      local_goal_angle = 90;
+    Serial.print("b");
+    }
+    
+    local_goal_angle = ir[4] > ir[6] ? -90 : 90;
     return;
   }
 
@@ -195,10 +209,6 @@ void find_local_goal() {
       if (groups[i].size() > max_group_size) {
         max_group_size = groups[i].size();
         max_group_idx = i;
-      } else if (groups[i].size() == max_group_size) {
-        max_group_idx = ir[4] > ir[6] ? 0 : 1;
-        if (abs(ir[4] - ir[6]) < NOISE_ALLOWANCE) max_group_idx = prev_turn;
-        prev_turn = max_group_idx;
       }
     }
 
@@ -248,10 +258,12 @@ void adjust_one_side_parallel(int first, int second, int third, int direction) {
   float beta =
       acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
 
+  float ave_angle;
+
   if (abs(alpha - beta) < 20) {
-    float ave_angle = (alpha + beta) * 0.5;
+    ave_angle = (alpha + beta) * 0.5;
   } else {
-    float ave_angle = alpha;
+    ave_angle = alpha;
   }
 
   float diff_angle =
@@ -266,6 +278,8 @@ void adjust_wall_parallel() {
   adjust_one_side_parallel(1, 2, 3, 1);
   adjust_one_side_parallel(9, 8, 7, -1);
 }
+
+void avoid_front_wall() {}
 
 void get_local_goal_speed() {
   float angle_rad = local_goal_angle * 3.14159 / 180.0;
