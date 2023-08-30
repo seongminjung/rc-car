@@ -79,6 +79,9 @@ limitations under the License.
       <param name="cmd_timeout" value="$(arg cmd_timeout)"/>
       <rosparam file="$(find ackermann_vehicle_gazebo)/config/em_3905_ackermann_ctrlr_params.yaml" command="load"/>
     </node>
+    
+    <!-- Rviz -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d /home/mt-smjung-pc-ubuntu/rc_car/src/ackermann_vehicle_gazebo/config/config.rviz"/>
 
   </group>
 </launch>
