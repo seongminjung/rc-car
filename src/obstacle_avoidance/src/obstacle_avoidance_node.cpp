@@ -1,6 +1,7 @@
 #include <vector>
 
 #include "ackermann_msgs/AckermannDrive.h"
+#include "obstacle_avoidance/SplitAndMerge.h"
 #include "ros/ros.h"
 #include "sensor_msgs/LaserScan.h"
 
@@ -14,10 +15,20 @@
 #define SERVO_RIGHT 800  // 1000 is converted to 1
 
 class ObstacleAvoidance {
+ private:
+  ros::NodeHandle n_;
+  ros::Publisher pub_;
+  ros::Subscriber sub_;
+  std::vector<float> ir;
+  float local_goal_speed = 0;
+  float local_goal_angle = 0;
+  bool emergency_stop = false;
+  int prev_turn = 0;
+  SplitAndMerge split_and_merge;
+
  public:
   ObstacleAvoidance() {
-    pub_ = n_.advertise<ackermann_msgs::AckermannDrive>("/rc_car/ackermann_cmd",
-                                                        1);
+    pub_ = n_.advertise<ackermann_msgs::AckermannDrive>("/rc_car/ackermann_cmd", 1);
     sub_ = n_.subscribe("/rc_car/ir", 1, &ObstacleAvoidance::ir_callback, this);
   }
 
@@ -28,14 +39,14 @@ class ObstacleAvoidance {
         // for Gazebo simulation
         ir.push_back((float)IR_MAX);
       } else {
-        ir.push_back(
-            std::max(std::min(float(scan_in->ranges[i] * 100 - IR_OFFSET),
-                              float(IR_MAX)),
-                     float(IR_MIN)));
+        ir.push_back(std::max(std::min(float(scan_in->ranges[i] * 100 - IR_OFFSET), float(IR_MAX)), float(IR_MIN)));
       }
     }
     // if front three irs are less than 20, stop
     emergency_stop = ir[3] == IR_MIN && ir[4] == IR_MIN && ir[5] == IR_MIN;
+
+    std::vector<std::vector<Point>> result = split_and_merge.grabData(ir);
+    std::printf("number of groups: %ld\n", result.size());
 
     find_local_goal();
     adjust_wall_distance();
@@ -128,17 +139,15 @@ class ObstacleAvoidance {
     // compare ir[0] and ir[8], which are the distances from left and right
     // respectively, and adjust the servo motor proportional to the difference
     // between the two.
-    if ((ir[0] == IR_MAX) != (ir[8] == IR_MAX))
-      return;  // better to follow wall
+    if ((ir[0] == IR_MAX) != (ir[8] == IR_MAX)) return;  // better to follow wall
     float diff = (ir[0] - ir[8]) * 0.5;
     local_goal_angle -= diff;
     std::printf("distance adjust amount: %.2f\n", diff);
   }
 
-  void adjust_one_side_parallel(int first, int second, int third,
-                                int direction) {
-    if (ir[first] == IR_MAX || ir[second] == IR_MAX || ir[third] == IR_MAX ||
-        ir[first] == IR_MIN || ir[second] == IR_MIN || ir[third] == IR_MIN)
+  void adjust_one_side_parallel(int first, int second, int third, int direction) {
+    if (ir[first] == IR_MAX || ir[second] == IR_MAX || ir[third] == IR_MAX || ir[first] == IR_MIN ||
+        ir[second] == IR_MIN || ir[third] == IR_MIN)
       return;  // cannot determine car-wall angle
 
     float a = ir[first], b1 = ir[second], b2 = ir[third];
@@ -147,19 +156,16 @@ class ObstacleAvoidance {
 
     // triangle between ir[0] and ir[1]
     c1 = sqrt(a * a + b1 * b1 - 2 * a * b1 * cos(theta));
-    float alpha =
-        acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
+    float alpha = acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
 
     // triangle between ir[0] and ir[2]
     c2 = sqrt(a * a + b2 * b2 - 2 * a * b2 * cos(theta * 2));
-    float beta =
-        acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
+    float beta = acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
 
     if (abs(alpha - beta) > 20) return;  // not parallel
 
     float ave_angle = (alpha + beta) * 0.5;
-    float diff_angle =
-        direction * (ave_angle - 90) * 1.0;  // left wall: +, right wall: -
+    float diff_angle = direction * (ave_angle - 90) * 1.0;  // left wall: +, right wall: -
     local_goal_angle -= diff_angle;
     std::printf("parallel adjust amount: %.2f\n", diff_angle);
   }
@@ -177,30 +183,18 @@ class ObstacleAvoidance {
     }
     float angle_rad = local_goal_angle * 3.14159 / 180.0;
     float a = 1.0, b = 0.5;
-    float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) +
-                             a * a * sin(angle_rad) * sin(angle_rad));
+    float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) + a * a * sin(angle_rad) * sin(angle_rad));
     local_goal_speed = r;
   }
 
   void follow_goal() {
-    local_goal_angle =
-        std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
+    local_goal_angle = std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
     int throttle = int(local_goal_speed * THROTTLE_FORWARD);
     int servo = int(SERVO_LEFT * local_goal_angle / 90.0);
     std::printf("final_goal_speed: %.2f\n", local_goal_speed);
     std::printf("final_goal_angle: %.2f\n", local_goal_angle);
     control_once(throttle, servo);
   }
-
- private:
-  ros::NodeHandle n_;
-  ros::Publisher pub_;
-  ros::Subscriber sub_;
-  std::vector<float> ir;
-  float local_goal_speed = 0;
-  float local_goal_angle = 0;
-  bool emergency_stop = false;
-  int prev_turn = 0;
 };
 
 int main(int argc, char **argv) {
