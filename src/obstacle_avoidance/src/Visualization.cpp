@@ -7,6 +7,12 @@
 
 #define IR_BODY_GAP 10
 
+void visualize(std::vector<std::vector<Point>> walls, float target_angle, float target_speed,
+               ros::Publisher marker_pub_, ros::Publisher goal_pub_) {
+  visualize_planes(walls, marker_pub_);
+  visualize_goal(target_angle, target_speed, goal_pub_);
+}
+
 void visualize_planes(std::vector<std::vector<Point>> walls, ros::Publisher marker_pub_) {
   visualization_msgs::MarkerArray marker_array;
 
@@ -42,14 +48,13 @@ void visualize_planes(std::vector<std::vector<Point>> walls, ros::Publisher mark
     Point start = walls[i][0];
     Point end = walls[i][walls[i].size() - 1];
     float length = sqrt(pow(start.x - end.x, 2) + pow(start.y - end.y, 2));
-    float angle = -1 * atan2(end.y - start.y, end.x - start.x);
+    float angle = atan2(end.y - start.y, end.x - start.x);
 
     tf2::Quaternion q;
     q.setRPY(0, 0, angle);
-    // q = q.normalize();
 
     marker.pose.position.x = (start.x + end.x) / 200.0 + IR_BODY_GAP / 100.0;
-    marker.pose.position.y = -1 * (start.y + end.y) / 200.0;
+    marker.pose.position.y = (start.y + end.y) / 200.0;
     marker.pose.position.z = 0.0;
     marker.pose.orientation.x = q.x();
     marker.pose.orientation.y = q.y();
@@ -74,7 +79,7 @@ void visualize_planes(std::vector<std::vector<Point>> walls, ros::Publisher mark
   marker_pub_.publish(marker_array);
 }
 
-void visualize_goal(float local_goal_angle, float local_goal_speed, ros::Publisher goal_pub_) {
+void visualize_goal(float target_angle, float target_speed, ros::Publisher goal_pub_) {
   visualization_msgs::Marker arrow;
   arrow.header.frame_id = "base_link";
   arrow.header.stamp = ros::Time::now();
@@ -84,7 +89,7 @@ void visualize_goal(float local_goal_angle, float local_goal_speed, ros::Publish
   arrow.action = visualization_msgs::Marker::ADD;
 
   tf2::Quaternion q;
-  q.setRPY(0, 0, -1 * local_goal_angle * 3.141592 / 180);
+  q.setRPY(0, 0, target_angle * 3.141592 / 180);
 
   arrow.pose.position.x = 0.0;
   arrow.pose.position.y = 0.0;
@@ -95,7 +100,7 @@ void visualize_goal(float local_goal_angle, float local_goal_speed, ros::Publish
   arrow.pose.orientation.w = q.w();
 
   // Set the scale of the marker -- 1x1x1 here means 1m on a side
-  arrow.scale.x = local_goal_speed;
+  arrow.scale.x = target_speed;
   arrow.scale.y = 0.05;
   arrow.scale.z = 0.05;
 

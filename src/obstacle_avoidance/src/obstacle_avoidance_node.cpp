@@ -12,9 +12,9 @@
 #define IR_OFFSET 7
 #define THROTTLE_FORWARD 1000  // 1000 is converted to 1
 #define THROTTLE_IDLE 0
-#define SERVO_LEFT -800  // 1000 is converted to 1
+#define SERVO_LEFT 800  // 1000 is converted to 1
 #define SERVO_CENTER 0
-#define SERVO_RIGHT 800  // 1000 is converted to 1
+#define SERVO_RIGHT -800  // 1000 is converted to 1
 
 class ObstacleAvoidance {
  private:
@@ -26,15 +26,15 @@ class ObstacleAvoidance {
   std::vector<float> ir;
   int state = 0;
   // 0: straight
-  // 1: left wall parallel - adjust wall parallel
-  // 2: right wall parallel - adjust wall parallel
-  // 3: two wall parallel - adjust wall parallel and distance
-  // 4: else - find local goal & avoid front obstacle
-  float local_goal_speed = 0;
-  float local_goal_angle = 0;
+  // 1:  wall parallel - adjust wall parallel
+  // 2: two wall parallel - adjust wall parallel and distance
+  // 3: else - find local goal & avoid front obstacle
+  float target_speed = 0;
+  float target_angle = 0;
   bool emergency_stop = false;
   int prev_turn = 0;
   SplitAndMerge split_and_merge;
+  std::vector<std::vector<Point>> walls;
 
  public:
   ObstacleAvoidance() {
@@ -57,13 +57,12 @@ class ObstacleAvoidance {
     // if front three irs are less than 20, stop
     emergency_stop = ir[3] == IR_MIN && ir[4] == IR_MIN && ir[5] == IR_MIN;
 
-    std::vector<std::vector<Point>> result = split_and_merge.grabData(ir);
-    update_state(result);
+    walls = split_and_merge.grabData(ir);
+    update_state();
     get_target_angle();
     get_target_speed();
-    follow_goal();
-    visualize_planes(result, marker_pub_);
-    visualize_goal(local_goal_angle, local_goal_speed, goal_pub_);
+    // follow_goal();
+    visualize(walls, target_angle, target_speed, marker_pub_, goal_pub_);
   }
 
   void control_once(int throttle, int servo) {
@@ -74,21 +73,24 @@ class ObstacleAvoidance {
     ack_pub_.publish(msg);
   }
 
-  void update_state(std::vector<std::vector<Point>> walls) {
+  void update_state() {
     if (walls.size() == 0) {
       state = 0;
     } else if (walls.size() == 1) {
       // angle between wall and car
-      float angle =
-          atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
-          180.0 / 3.14159;
+      float angle;
+      if (walls[0][0].y > 0)
+        angle =
+            atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
+            180.0 / 3.14159;
+      else
+        angle =
+            atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
+            180.0 / 3.14159;
       if (abs(angle) < 20) {
-        if (walls[0][0].x > 0)
-          state = 1;
-        else
-          state = 2;
+        state = 1;
       } else {
-        state = 4;
+        state = 3;
       }
     } else if (walls.size() == 2) {
       // angle between wall and car
@@ -99,30 +101,30 @@ class ObstacleAvoidance {
           atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
           180.0 / 3.14159;
       if (abs(angle1) < 20 && abs(angle2) < 20) {
-        state = 3;
+        state = 2;
       } else {
-        state = 4;
+        state = 3;
       }
     } else {
-      state = 4;
+      state = 3;
     }
+    // std::printf("number of walls: %ld\t", walls.size());
+    // std::printf("state: %d\n", state);
   }
 
   void get_target_angle() {
+    target_angle = 0;
     switch (state) {
       case 0:
-        local_goal_angle = 0;
+        target_angle = 0;
         break;
       case 1:
-        adjust_one_side_parallel(0, 1, 2, 1);
+        adjust_parallel();
         break;
       case 2:
-        adjust_one_side_parallel(8, 7, 6, -1);
-        break;
-      case 3:
         adjust_wall_distance();
         break;
-      case 4:
+      case 3:
         guide_to_empty();
         break;
     }
@@ -131,7 +133,7 @@ class ObstacleAvoidance {
   void guide_to_empty() {
     if (ir[3] == IR_MAX && ir[4] == IR_MAX && ir[5] == IR_MAX) {
       // if front three irs are all max, go straight
-      local_goal_angle = 0;
+      target_angle = 0;
       return;
     }
 
@@ -149,10 +151,10 @@ class ObstacleAvoidance {
       }
     }
     // print the index of IR sensors with furthest distance
-    for (int i = 0; i < max_group.size(); i++) {
-      std::printf("%d  ", max_group[i]);
-    }
-    std::printf("\n");
+    // for (int i = 0; i < max_group.size(); i++) {
+    //   std::printf("%d  ", max_group[i]);
+    // }
+    // std::printf("\n");
 
     if (max_group.size() > 0) {
       // group the consecutive numbers. e.g. (2,3), (5,6,7,8)
@@ -171,7 +173,7 @@ class ObstacleAvoidance {
         }
       }
       groups.push_back(group);
-      std::printf("number of groups: %ld\t", groups.size());
+      // std::printf("number of groups: %ld\t", groups.size());
 
       // find the biggest group
       int max_group_size = 0;
@@ -186,7 +188,7 @@ class ObstacleAvoidance {
           prev_turn = max_group_idx;
         }
       }
-      std::printf("biggest group index: %d\n", max_group_idx);
+      // std::printf("biggest group index: %d\n", max_group_idx);
 
       // find the center of the biggest group
       int max_group_center = 0;
@@ -194,9 +196,9 @@ class ObstacleAvoidance {
         max_group_center += groups[max_group_idx][i];
       }
       max_group_center /= groups[max_group_idx].size();
-      local_goal_angle = (max_group_center - 4) * 22.5;
+      target_angle = -1 * (max_group_center - 4) * 22.5;
 
-      std::printf("local_goal_angle: %.2f\n", local_goal_angle);
+      // std::printf("target_angle: %.2f\n", target_angle);
     }
   }
 
@@ -206,58 +208,40 @@ class ObstacleAvoidance {
     // between the two.
     if ((ir[0] == IR_MAX) != (ir[8] == IR_MAX)) return;  // better to follow wall
     float diff = (ir[0] - ir[8]) * 0.5;
-    local_goal_angle -= diff;
+    target_angle = diff;
     std::printf("distance adjust amount: %.2f\n", diff);
   }
 
-  void adjust_one_side_parallel(int first, int second, int third, int direction) {
-    if (ir[first] == IR_MAX || ir[second] == IR_MAX || ir[third] == IR_MAX || ir[first] == IR_MIN ||
-        ir[second] == IR_MIN || ir[third] == IR_MIN)
-      return;  // cannot determine car-wall angle
-
-    float a = ir[first], b1 = ir[second], b2 = ir[third];
-    float c1, c2;
-    float theta = 22.5 * 3.14159 / 180.0;
-
-    // triangle between ir[0] and ir[1]
-    c1 = sqrt(a * a + b1 * b1 - 2 * a * b1 * cos(theta));
-    float alpha = acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
-
-    // triangle between ir[0] and ir[2]
-    c2 = sqrt(a * a + b2 * b2 - 2 * a * b2 * cos(theta * 2));
-    float beta = acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
-
-    if (abs(alpha - beta) > 20) return;  // not parallel
-
-    float ave_angle = (alpha + beta) * 0.5;
-    float diff_angle = direction * (ave_angle - 90) * 1.0;  // left wall: +, right wall: -
-    local_goal_angle -= diff_angle;
-    std::printf("parallel adjust amount: %.2f\n", diff_angle);
-  }
-
-  void adjust_wall_parallel() {
-    adjust_one_side_parallel(0, 1, 2, 1);
-    adjust_one_side_parallel(8, 7, 6, -1);
+  void adjust_parallel() {
+    // angle between wall and car
+    float angle;
+    if (walls[0][0].y > 0)
+      angle = atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
+              180.0 / 3.14159;
+    else
+      angle = atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
+              180.0 / 3.14159;
+    target_angle = angle;
   }
 
   void get_target_speed() {
     if (emergency_stop) {
-      std::printf("emergency stop!\n");
-      local_goal_speed = 0;
+      target_angle = 0;
+      target_speed = 0;
       return;
     }
-    float angle_rad = local_goal_angle * 3.14159 / 180.0;
+    float angle_rad = target_angle * 3.14159 / 180.0;
     float a = 1.0, b = 0.5;
     float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) + a * a * sin(angle_rad) * sin(angle_rad));
-    local_goal_speed = r;
+    target_speed = r;
   }
 
   void follow_goal() {
-    local_goal_angle = std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
-    int throttle = int(local_goal_speed * THROTTLE_FORWARD);
-    int servo = int(SERVO_LEFT * local_goal_angle / 90.0);
-    std::printf("final_goal_speed: %.2f\n", local_goal_speed);
-    std::printf("final_goal_angle: %.2f\n", local_goal_angle);
+    target_angle = std::min(std::max(target_angle, float(-90.0)), float(90.0));
+    int throttle = int(target_speed * THROTTLE_FORWARD);
+    int servo = int(SERVO_LEFT * target_angle / 90.0);
+    // std::printf("final_goal_speed: %.2f\n", target_speed);
+    // std::printf("final_goal_angle: %.2f\n", target_angle);
     control_once(throttle, servo);
   }
 };

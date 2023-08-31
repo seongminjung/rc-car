@@ -14,7 +14,7 @@ std::vector<std::vector<Point>> SplitAndMerge::grabData(std::vector<float> ir_in
     if (ir_in[i] < 70) {
       Point point;
       point.x = (ir_in[i] + IR_OFFSET) * cos((i * 22.5 - 90) * 3.141592 / 180);
-      point.y = (ir_in[i] + IR_OFFSET) * sin((i * 22.5 - 90) * 3.141592 / 180);
+      point.y = -1 * (ir_in[i] + IR_OFFSET) * sin((i * 22.5 - 90) * 3.141592 / 180);  // IR sensor order issue
       point.idx = i;
       group.push_back(point);
     } else {
