@@ -21,6 +21,7 @@ class ObstacleAvoidance {
   ros::NodeHandle n_;
   ros::Publisher ack_pub_;
   ros::Publisher marker_pub_;
+  ros::Publisher goal_pub_;
   ros::Subscriber sub_;
   std::vector<float> ir;
   float local_goal_speed = 0;
@@ -33,6 +34,7 @@ class ObstacleAvoidance {
   ObstacleAvoidance() {
     ack_pub_ = n_.advertise<ackermann_msgs::AckermannDrive>("/rc_car/ackermann_cmd", 1);
     marker_pub_ = n_.advertise<visualization_msgs::MarkerArray>("/rc_car/visualization_marker", 1);
+    goal_pub_ = n_.advertise<visualization_msgs::Marker>("/rc_car/local_goal", 1);
     sub_ = n_.subscribe("/rc_car/ir", 1, &ObstacleAvoidance::ir_callback, this);
   }
 
@@ -103,6 +105,42 @@ class ObstacleAvoidance {
     marker_pub_.publish(marker_array);
   }
 
+  void visualize_goal() {
+    visualization_msgs::Marker arrow;
+    arrow.header.frame_id = "base_link";
+    arrow.header.stamp = ros::Time::now();
+    arrow.ns = "goal";
+    arrow.id = 0;
+    arrow.type = visualization_msgs::Marker::ARROW;
+    arrow.action = visualization_msgs::Marker::ADD;
+
+    tf2::Quaternion q;
+    q.setRPY(0, 0, -1 * local_goal_angle * 3.141592 / 180);
+
+    arrow.pose.position.x = 0.0;
+    arrow.pose.position.y = 0.0;
+    arrow.pose.position.z = 0.0;
+    arrow.pose.orientation.x = q.x();
+    arrow.pose.orientation.y = q.y();
+    arrow.pose.orientation.z = q.z();
+    arrow.pose.orientation.w = q.w();
+
+    // Set the scale of the marker -- 1x1x1 here means 1m on a side
+    arrow.scale.x = local_goal_speed;
+    arrow.scale.y = 0.05;
+    arrow.scale.z = 0.05;
+
+    // Set the color -- be sure to set alpha to something non-zero!
+    arrow.color.r = 1.0f;
+    arrow.color.g = 0.0f;
+    arrow.color.b = 0.0f;
+    arrow.color.a = 1.0;
+
+    arrow.lifetime = ros::Duration();
+
+    goal_pub_.publish(arrow);
+  }
+
   void ir_callback(const sensor_msgs::LaserScan::ConstPtr &scan_in) {
     ir.clear();
     for (int i = 0; i < 9; i++) {
@@ -118,11 +156,11 @@ class ObstacleAvoidance {
 
     std::vector<std::vector<Point>> result = split_and_merge.grabData(ir);
     visualize_planes(result);
-
     find_local_goal();
     adjust_wall_distance();
     adjust_wall_parallel();
     get_local_goal_speed();
+    visualize_goal();
     follow_goal();
   }
 

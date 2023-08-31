@@ -197,6 +197,14 @@ Visualization Manager:
         plane: true
       Queue Size: 100
       Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /rc_car/local_goal
+      Name: Marker
+      Namespaces:
+        goal: true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -225,7 +233,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 4.6724114418029785
+      Distance: 3.356088876724243
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -241,9 +249,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.154797077178955
+      Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
-      Yaw: 3.3854050636291504
+      Yaw: 3.3054041862487793
     Saved: ~
 Window Geometry:
   Displays:
@@ -263,5 +271,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1394
-  X: 630
-  Y: 398
+  X: 1107
+  Y: 605
