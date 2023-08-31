@@ -6,6 +6,7 @@ struct PolarPoint {
 };
 
 struct Point {
+  int idx;  // for debugging
   float x;
   float y;
 };
@@ -16,8 +17,6 @@ class SplitAndMerge {
 
  public:
   SplitAndMerge();
-
-  std::vector<Point> ir2Cartesian(std::vector<float> ir_in);
 
   std::vector<std::vector<Point>> grabData(std::vector<float> ir_in);
 

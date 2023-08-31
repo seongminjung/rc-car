@@ -3,25 +3,38 @@
 #include <cmath>
 #include <vector>
 
+#define IR_OFFSET 7
+
 SplitAndMerge::SplitAndMerge() { threshold = 5; }
 
-std::vector<Point> SplitAndMerge::ir2Cartesian(std::vector<float> ir_in) {
-  std::vector<Point> raw_points;  // raw data converted into cartesian
-  for (int i = 0; i < ir_in.size(); i++) {
-    float r = ir_in[i];
-    float theta = i * 22.5 - 90;
-    float x = r * cos(theta);
-    float y = r * sin(theta);
-    Point point;
-    point.x = x;
-    point.y = y;
-    raw_points.push_back(point);
-  }
-  return raw_points;
-}
-
 std::vector<std::vector<Point>> SplitAndMerge::grabData(std::vector<float> ir_in) {
-  return runSplitAndMerge(ir2Cartesian(ir_in));
+  std::vector<Point> group;
+  std::vector<std::vector<Point>> groups;
+  for (int i = 0; i < ir_in.size(); i++) {
+    if (ir_in[i] < 70) {
+      Point point;
+      point.x = (ir_in[i] + IR_OFFSET) * cos((i * 22.5 - 90) * 3.141592 / 180);
+      point.y = (ir_in[i] + IR_OFFSET) * sin((i * 22.5 - 90) * 3.141592 / 180);
+      point.idx = i;
+      group.push_back(point);
+    } else {
+      if (group.size() > 0) {
+        groups.push_back(group);
+        group.clear();
+      }
+    }
+  }
+  // put final group into groups
+  if (group.size() > 0) {
+    groups.push_back(group);
+    group.clear();
+  }
+  std::vector<std::vector<Point>> result;
+  for (int i = 0; i < groups.size(); i++) {
+    std::vector<std::vector<Point>> temp = runSplitAndMerge(groups[i]);
+    result.insert(result.end(), temp.begin(), temp.end());
+  }
+  return result;
 }
 
 float SplitAndMerge::getDistance(Point P, Point Ps, Point Pe) {
@@ -52,6 +65,10 @@ std::pair<float, int> SplitAndMerge::GetMostDistant(std::vector<Point> points) {
 }
 
 std::vector<std::vector<Point>> SplitAndMerge::runSplitAndMerge(std::vector<Point> points) {
+  if (points.size() <= 1) {
+    // if a line segment has only two points, return
+    return std::vector<std::vector<Point>>();
+  }
   std::pair<float, int> most_distant = GetMostDistant(points);
   float d = most_distant.first;
   int ind = most_distant.second;
@@ -68,7 +85,7 @@ std::vector<std::vector<Point>> SplitAndMerge::runSplitAndMerge(std::vector<Poin
     std::vector<std::vector<Point>> result_left = runSplitAndMerge(points_left);
     std::vector<std::vector<Point>> result_right = runSplitAndMerge(points_right);
 
-    result = result_left;
+    result.insert(result.end(), result_left.begin(), result_left.end());
     result.insert(result.end(), result_right.begin(), result_right.end());
   } else {
     // one line segment

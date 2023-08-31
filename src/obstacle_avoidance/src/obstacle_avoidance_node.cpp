@@ -4,6 +4,8 @@
 #include "obstacle_avoidance/SplitAndMerge.h"
 #include "ros/ros.h"
 #include "sensor_msgs/LaserScan.h"
+#include "tf2/LinearMath/Quaternion.h"
+#include "visualization_msgs/MarkerArray.h"
 
 #define IR_MAX 70
 #define IR_MIN 20
@@ -17,7 +19,8 @@
 class ObstacleAvoidance {
  private:
   ros::NodeHandle n_;
-  ros::Publisher pub_;
+  ros::Publisher ack_pub_;
+  ros::Publisher marker_pub_;
   ros::Subscriber sub_;
   std::vector<float> ir;
   float local_goal_speed = 0;
@@ -28,8 +31,76 @@ class ObstacleAvoidance {
 
  public:
   ObstacleAvoidance() {
-    pub_ = n_.advertise<ackermann_msgs::AckermannDrive>("/rc_car/ackermann_cmd", 1);
+    ack_pub_ = n_.advertise<ackermann_msgs::AckermannDrive>("/rc_car/ackermann_cmd", 1);
+    marker_pub_ = n_.advertise<visualization_msgs::MarkerArray>("/rc_car/visualization_marker", 1);
     sub_ = n_.subscribe("/rc_car/ir", 1, &ObstacleAvoidance::ir_callback, this);
+  }
+
+  void visualize_planes(std::vector<std::vector<Point>> lines) {
+    visualization_msgs::MarkerArray marker_array;
+
+    // remove all markers
+    visualization_msgs::Marker deleteall_marker;
+    deleteall_marker.ns = "plane";
+    deleteall_marker.id = 1;
+    deleteall_marker.action = visualization_msgs::Marker::DELETEALL;
+    marker_array.markers.push_back(deleteall_marker);
+    marker_pub_.publish(marker_array);
+
+    marker_array.markers.clear();
+
+    for (int i = 0; i < lines.size(); i++) {
+      visualization_msgs::Marker marker;
+      // Set the frame ID and timestamp.
+      marker.header.frame_id = "base_link";
+      marker.header.stamp = ros::Time::now();
+      // Set the namespace and id for this marker. This serves to create a unique
+      // ID Any marker sent with the same namespace and id will overwrite the old
+      // one
+      marker.ns = "plane";
+      marker.id = i;
+      // Set the marker type. Initially this is CUBE, and cycles between that and
+      // SPHERE, ARROW, and CYLINDER
+      marker.type = visualization_msgs::Marker::CUBE;
+      // Set the marker action. Options are ADD, DELETE, and new in ROS Indigo: 3
+      // (DELETEALL)
+      marker.action = visualization_msgs::Marker::ADD;
+      // Set the pose of the marker.  This is a full 6DOF pose relative to the
+      // frame/time specified in the header
+
+      Point start = lines[i][0];
+      Point end = lines[i][lines[i].size() - 1];
+      float length = sqrt(pow(start.x - end.x, 2) + pow(start.y - end.y, 2));
+      float angle = -1 * atan2(end.y - start.y, end.x - start.x);
+
+      tf2::Quaternion q;
+      q.setRPY(0, 0, angle);
+      // q = q.normalize();
+
+      marker.pose.position.x = (start.x + end.x) / 200.0;
+      marker.pose.position.y = -1 * (start.y + end.y) / 200.0;
+      marker.pose.position.z = 0.0;
+      marker.pose.orientation.x = q.x();
+      marker.pose.orientation.y = q.y();
+      marker.pose.orientation.z = q.z();
+      marker.pose.orientation.w = q.w();
+
+      // Set the scale of the marker -- 1x1x1 here means 1m on a side
+      marker.scale.x = length / 100.0;
+      marker.scale.y = 0.05;
+      marker.scale.z = 0.5;
+
+      // Set the color -- be sure to set alpha to something non-zero!
+      marker.color.r = 0.0f;
+      marker.color.g = 1.0f;
+      marker.color.b = 0.0f;
+      marker.color.a = 1.0;
+
+      marker.lifetime = ros::Duration();
+
+      marker_array.markers.push_back(marker);
+    }
+    marker_pub_.publish(marker_array);
   }
 
   void ir_callback(const sensor_msgs::LaserScan::ConstPtr &scan_in) {
@@ -46,7 +117,7 @@ class ObstacleAvoidance {
     emergency_stop = ir[3] == IR_MIN && ir[4] == IR_MIN && ir[5] == IR_MIN;
 
     std::vector<std::vector<Point>> result = split_and_merge.grabData(ir);
-    std::printf("number of groups: %ld\n", result.size());
+    visualize_planes(result);
 
     find_local_goal();
     adjust_wall_distance();
@@ -60,7 +131,7 @@ class ObstacleAvoidance {
     // convert to actual input value
     msg.speed = throttle / 1000.0;
     msg.steering_angle = servo / 1000.0;
-    pub_.publish(msg);
+    ack_pub_.publish(msg);
   }
 
   void find_local_goal() {
