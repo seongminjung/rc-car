@@ -26,7 +26,7 @@ class ObstacleAvoidance {
   std::vector<float> ir;
   int state = 0;
   // 0: straight
-  // 1:  wall parallel - adjust wall parallel
+  // 1: wall parallel - adjust wall parallel
   // 2: two wall parallel - adjust wall parallel and distance
   // 3: else - find local goal & avoid front obstacle
   float target_speed = 0;
@@ -61,7 +61,7 @@ class ObstacleAvoidance {
     update_state();
     get_target_angle();
     get_target_speed();
-    // follow_goal();
+    follow_goal();
     visualize(walls, target_angle, target_speed, marker_pub_, goal_pub_);
   }
 
@@ -95,12 +95,12 @@ class ObstacleAvoidance {
     } else if (walls.size() == 2) {
       // angle between wall and car
       float angle1 =
-          atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
-          180.0 / 3.14159;
+          atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
+          180.0 / 3.14159;  // should be the left side
       float angle2 =
           atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
-          180.0 / 3.14159;
-      if (abs(angle1) < 20 && abs(angle2) < 20) {
+          180.0 / 3.14159;  // should be the right side
+      if (abs(angle1) < 20 && abs(angle2) < 20 && walls[0][0].y > 0 && walls[1][0].y < 0) {
         state = 2;
       } else {
         state = 3;
@@ -108,8 +108,6 @@ class ObstacleAvoidance {
     } else {
       state = 3;
     }
-    // std::printf("number of walls: %ld\t", walls.size());
-    // std::printf("state: %d\n", state);
   }
 
   void get_target_angle() {
@@ -119,18 +117,43 @@ class ObstacleAvoidance {
         target_angle = 0;
         break;
       case 1:
-        adjust_parallel();
+        adjust_parallel_single();
         break;
       case 2:
-        adjust_wall_distance();
+        adjust_parallel_and_distance_double();
         break;
       case 3:
-        guide_to_empty();
+        guide_to_empty_space();
         break;
     }
   }
 
-  void guide_to_empty() {
+  void adjust_parallel_single() {
+    // angle between wall and car
+    float angle;
+    if (walls[0][0].y > 0)
+      angle = atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
+              180.0 / 3.14159;
+    else
+      angle = atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
+              180.0 / 3.14159;
+    target_angle = angle;
+  }
+
+  void adjust_parallel_and_distance_double() {
+    float angle1 =
+        atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
+        180.0 / 3.14159;  // should be left side
+    float angle2 =
+        atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
+        180.0 / 3.14159;  // should be right side
+    float ave_angle = (angle1 + angle2) * 0.5;
+    float dist_diff = (walls[0][0].y + walls[1][walls[1].size() - 1].y) * 0.5;
+    target_angle = ave_angle + dist_diff;
+    std::printf("distance adjust amount: %.2f\n", target_angle);
+  }
+
+  void guide_to_empty_space() {
     if (ir[3] == IR_MAX && ir[4] == IR_MAX && ir[5] == IR_MAX) {
       // if front three irs are all max, go straight
       target_angle = 0;
@@ -200,28 +223,6 @@ class ObstacleAvoidance {
 
       // std::printf("target_angle: %.2f\n", target_angle);
     }
-  }
-
-  void adjust_wall_distance() {
-    // compare ir[0] and ir[8], which are the distances from left and right
-    // respectively, and adjust the servo motor proportional to the difference
-    // between the two.
-    if ((ir[0] == IR_MAX) != (ir[8] == IR_MAX)) return;  // better to follow wall
-    float diff = (ir[0] - ir[8]) * 0.5;
-    target_angle = diff;
-    std::printf("distance adjust amount: %.2f\n", diff);
-  }
-
-  void adjust_parallel() {
-    // angle between wall and car
-    float angle;
-    if (walls[0][0].y > 0)
-      angle = atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
-              180.0 / 3.14159;
-    else
-      angle = atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
-              180.0 / 3.14159;
-    target_angle = angle;
   }
 
   void get_target_speed() {
