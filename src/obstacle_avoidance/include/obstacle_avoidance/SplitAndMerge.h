@@ -1,10 +1,6 @@
 #include <vector>
 
-struct Point {
-  int idx;  // for debugging
-  float x;
-  float y;
-};
+#include "obstacle_avoidance/Point.h"
 
 struct Wall {
   std::vector<Point> points;
