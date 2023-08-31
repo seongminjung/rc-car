@@ -10,6 +10,7 @@
 #define IR_MAX 70
 #define IR_MIN 20
 #define IR_OFFSET 7
+#define IR_BODY_GAP 10
 #define THROTTLE_FORWARD 1000  // 1000 is converted to 1
 #define THROTTLE_IDLE 0
 #define SERVO_LEFT -800  // 1000 is converted to 1
@@ -24,6 +25,12 @@ class ObstacleAvoidance {
   ros::Publisher goal_pub_;
   ros::Subscriber sub_;
   std::vector<float> ir;
+  int state = 0;
+  // 0: straight
+  // 1: left wall parallel - adjust wall parallel
+  // 2: right wall parallel - adjust wall parallel
+  // 3: two wall parallel - adjust wall parallel and distance
+  // 4: else - find local goal & avoid front obstacle
   float local_goal_speed = 0;
   float local_goal_angle = 0;
   bool emergency_stop = false;
@@ -38,7 +45,7 @@ class ObstacleAvoidance {
     sub_ = n_.subscribe("/rc_car/ir", 1, &ObstacleAvoidance::ir_callback, this);
   }
 
-  void visualize_planes(std::vector<std::vector<Point>> lines) {
+  void visualize_planes(std::vector<std::vector<Point>> walls) {
     visualization_msgs::MarkerArray marker_array;
 
     // remove all markers
@@ -51,7 +58,7 @@ class ObstacleAvoidance {
 
     marker_array.markers.clear();
 
-    for (int i = 0; i < lines.size(); i++) {
+    for (int i = 0; i < walls.size(); i++) {
       visualization_msgs::Marker marker;
       // Set the frame ID and timestamp.
       marker.header.frame_id = "base_link";
@@ -70,8 +77,8 @@ class ObstacleAvoidance {
       // Set the pose of the marker.  This is a full 6DOF pose relative to the
       // frame/time specified in the header
 
-      Point start = lines[i][0];
-      Point end = lines[i][lines[i].size() - 1];
+      Point start = walls[i][0];
+      Point end = walls[i][walls[i].size() - 1];
       float length = sqrt(pow(start.x - end.x, 2) + pow(start.y - end.y, 2));
       float angle = -1 * atan2(end.y - start.y, end.x - start.x);
 
@@ -79,7 +86,7 @@ class ObstacleAvoidance {
       q.setRPY(0, 0, angle);
       // q = q.normalize();
 
-      marker.pose.position.x = (start.x + end.x) / 200.0;
+      marker.pose.position.x = (start.x + end.x) / 200.0 + IR_BODY_GAP / 100.0;
       marker.pose.position.y = -1 * (start.y + end.y) / 200.0;
       marker.pose.position.z = 0.0;
       marker.pose.orientation.x = q.x();
@@ -94,7 +101,7 @@ class ObstacleAvoidance {
 
       // Set the color -- be sure to set alpha to something non-zero!
       marker.color.r = 0.0f;
-      marker.color.g = 1.0f;
+      marker.color.g = 1.0f * walls[i].size() / 6.0;
       marker.color.b = 0.0f;
       marker.color.a = 1.0;
 
@@ -155,13 +162,12 @@ class ObstacleAvoidance {
     emergency_stop = ir[3] == IR_MIN && ir[4] == IR_MIN && ir[5] == IR_MIN;
 
     std::vector<std::vector<Point>> result = split_and_merge.grabData(ir);
-    visualize_planes(result);
-    find_local_goal();
-    adjust_wall_distance();
-    adjust_wall_parallel();
-    get_local_goal_speed();
-    visualize_goal();
+    update_state(result);
+    get_target_angle();
+    get_target_speed();
     follow_goal();
+    visualize_planes(result);
+    visualize_goal();
   }
 
   void control_once(int throttle, int servo) {
@@ -172,7 +178,61 @@ class ObstacleAvoidance {
     ack_pub_.publish(msg);
   }
 
-  void find_local_goal() {
+  void update_state(std::vector<std::vector<Point>> walls) {
+    if (walls.size() == 0) {
+      state = 0;
+    } else if (walls.size() == 1) {
+      // angle between wall and car
+      float angle =
+          atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
+          180.0 / 3.14159;
+      if (abs(angle) < 20) {
+        if (walls[0][0].x > 0)
+          state = 1;
+        else
+          state = 2;
+      } else {
+        state = 4;
+      }
+    } else if (walls.size() == 2) {
+      // angle between wall and car
+      float angle1 =
+          atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
+          180.0 / 3.14159;
+      float angle2 =
+          atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
+          180.0 / 3.14159;
+      if (abs(angle1) < 20 && abs(angle2) < 20) {
+        state = 3;
+      } else {
+        state = 4;
+      }
+    } else {
+      state = 4;
+    }
+  }
+
+  void get_target_angle() {
+    switch (state) {
+      case 0:
+        local_goal_angle = 0;
+        break;
+      case 1:
+        adjust_one_side_parallel(0, 1, 2, 1);
+        break;
+      case 2:
+        adjust_one_side_parallel(8, 7, 6, -1);
+        break;
+      case 3:
+        adjust_wall_distance();
+        break;
+      case 4:
+        guide_to_empty();
+        break;
+    }
+  }
+
+  void guide_to_empty() {
     if (ir[3] == IR_MAX && ir[4] == IR_MAX && ir[5] == IR_MAX) {
       // if front three irs are all max, go straight
       local_goal_angle = 0;
@@ -238,7 +298,7 @@ class ObstacleAvoidance {
         max_group_center += groups[max_group_idx][i];
       }
       max_group_center /= groups[max_group_idx].size();
-      local_goal_angle = (max_group_center - 4) * 22.5;  // multiply -1
+      local_goal_angle = (max_group_center - 4) * 22.5;
 
       std::printf("local_goal_angle: %.2f\n", local_goal_angle);
     }
@@ -284,7 +344,7 @@ class ObstacleAvoidance {
     adjust_one_side_parallel(8, 7, 6, -1);
   }
 
-  void get_local_goal_speed() {
+  void get_target_speed() {
     if (emergency_stop) {
       std::printf("emergency stop!\n");
       local_goal_speed = 0;

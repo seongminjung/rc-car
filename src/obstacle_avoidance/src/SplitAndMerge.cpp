@@ -66,7 +66,7 @@ std::pair<float, int> SplitAndMerge::GetMostDistant(std::vector<Point> points) {
 
 std::vector<std::vector<Point>> SplitAndMerge::runSplitAndMerge(std::vector<Point> points) {
   if (points.size() <= 1) {
-    // if a line segment has only two points, return
+    // if a line segment has only one point, return
     return std::vector<std::vector<Point>>();
   }
   std::pair<float, int> most_distant = GetMostDistant(points);

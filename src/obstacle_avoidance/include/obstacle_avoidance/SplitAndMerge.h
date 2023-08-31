@@ -1,14 +1,13 @@
 #include <vector>
 
-struct PolarPoint {
-  float r;
-  float theta;
-};
-
 struct Point {
   int idx;  // for debugging
   float x;
   float y;
+};
+
+struct Wall {
+  std::vector<Point> points;
 };
 
 class SplitAndMerge {
