@@ -32,6 +32,7 @@ class ObstacleAvoidance {
   float target_speed = 0;
   float target_angle = 0;
   bool emergency_stop = false;
+  bool direction_lock = false;
   int prev_turn = 0;
   SplitAndMerge split_and_merge;
   std::vector<std::vector<Point>> walls;
@@ -87,7 +88,7 @@ class ObstacleAvoidance {
         angle =
             atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
             180.0 / 3.14159;
-      if (abs(angle) < 20) {
+      if (abs(angle) < 45) {
         state = 1;
       } else {
         state = 3;
@@ -100,7 +101,7 @@ class ObstacleAvoidance {
       float angle2 =
           atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
           180.0 / 3.14159;  // should be the right side
-      if (abs(angle1) < 20 && abs(angle2) < 20 && walls[0][0].y > 0 && walls[1][0].y < 0) {
+      if (abs(angle1) < 45 && abs(angle2) < 45 && walls[0][0].y > 0 && walls[1][0].y < 0) {
         state = 2;
       } else {
         state = 3;
@@ -150,7 +151,6 @@ class ObstacleAvoidance {
     float ave_angle = (angle1 + angle2) * 0.5;
     float dist_diff = (walls[0][0].y + walls[1][walls[1].size() - 1].y) * 0.5;
     target_angle = ave_angle + dist_diff;
-    std::printf("distance adjust amount: %.2f\n", target_angle);
   }
 
   void guide_to_empty_space() {
@@ -196,32 +196,64 @@ class ObstacleAvoidance {
         }
       }
       groups.push_back(group);
-      // std::printf("number of groups: %ld\t", groups.size());
 
       // find the biggest group
       int max_group_size = 0;
       int max_group_idx = 0;
       for (int i = 0; i < groups.size(); i++) {
-        if (groups[i].size() > max_group_size) {
-          max_group_size = groups[i].size();
+        std::vector<int> cur_group = groups[i];
+        int cur_group_size = cur_group.size();
+        if (cur_group_size > max_group_size) {
+          max_group_size = cur_group_size;
           max_group_idx = i;
-        } else if (groups[i].size() == max_group_size) {
-          max_group_idx = ir[3] > ir[5] ? 0 : 1;
-          if (abs(ir[3] - ir[5]) < 5) max_group_idx = prev_turn;
-          prev_turn = max_group_idx;
+        } else if (cur_group_size == max_group_size) {
+          std::vector<int> max_adjacent_idx;
+          std::vector<int> cur_adjacent_idx;
+          float max_group_adjacent_distance = 0;
+          float cur_group_adjacent_distance = 0;
+          if (groups[max_group_idx][0] != 0) max_adjacent_idx.push_back(groups[max_group_idx][0] - 1);
+          if (groups[max_group_idx][groups[max_group_idx].size() - 1] != 8)
+            max_adjacent_idx.push_back(groups[max_group_idx][groups[max_group_idx].size() - 1] + 1);
+          if (cur_group[0] != 0) cur_adjacent_idx.push_back(cur_group[0] - 1);
+          if (cur_group[cur_group.size() - 1] != 8) cur_adjacent_idx.push_back(cur_group[cur_group.size() - 1] + 1);
+
+          for (int j = 0; j < max_adjacent_idx.size(); j++) {
+            max_group_adjacent_distance += ir[max_adjacent_idx[j]];
+          }
+          max_group_adjacent_distance /= max_adjacent_idx.size();
+
+          for (int j = 0; j < cur_adjacent_idx.size(); j++) {
+            cur_group_adjacent_distance += ir[cur_adjacent_idx[j]];
+          }
+          cur_group_adjacent_distance /= cur_adjacent_idx.size();
+
+          if (cur_group_adjacent_distance > max_group_adjacent_distance) {
+            max_group_size = cur_group_size;
+            max_group_idx = i;
+          }
+
+          std::printf("max_adjacent_idx: %.2f\n", max_group_adjacent_distance);
+          std::printf("cur_adjacent_idx: %.2f\n", cur_group_adjacent_distance);
+
+          // max_group_idx = ir[3] > ir[5] ? 0 : 1;
+          // if (abs(ir[3] - ir[5]) < 5) max_group_idx = prev_turn;
+          // prev_turn = max_group_idx;
         }
       }
-      // std::printf("biggest group index: %d\n", max_group_idx);
+      std::printf("biggest group index: %d\n", max_group_idx);
+      std::printf("biggest group size: %ld\n", groups[max_group_idx].size());
 
       // find the center of the biggest group
-      int max_group_center = 0;
+      float max_group_center = 0;
       for (int i = 0; i < groups[max_group_idx].size(); i++) {
         max_group_center += groups[max_group_idx][i];
       }
       max_group_center /= groups[max_group_idx].size();
       target_angle = -1 * (max_group_center - 4) * 22.5;
-
-      // std::printf("target_angle: %.2f\n", target_angle);
+      if (target_angle == -78.75) target_angle = -90;  // full turn
+      if (target_angle == 78.75) target_angle = 90;    // full turn
+      std::printf("max_group_center: %.2f\n", max_group_center);
+      std::printf("target_angle: %.2f\n", target_angle);
     }
   }
 
