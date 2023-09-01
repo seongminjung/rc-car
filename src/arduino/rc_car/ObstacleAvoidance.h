@@ -1,19 +1,10 @@
-#include <vector>
+#include <Arduino_AVRSTL.h>
 
-#include "ackermann_msgs/AckermannDrive.h"
 #include "obstacle_avoidance/SplitAndMerge.h"
 #include "obstacle_avoidance/Visualization.h"
-#include "ros/ros.h"
-#include "sensor_msgs/LaserScan.h"
-#include "visualization_msgs/MarkerArray.h"
 
 class ObstacleAvoidance {
  private:
-  ros::NodeHandle n_;
-  ros::Publisher ack_pub_;
-  ros::Publisher marker_pub_;
-  ros::Publisher goal_pub_;
-  ros::Subscriber sub_;
   std::vector<float> ir;
   int state = 0;
   // 0: straight
@@ -24,14 +15,14 @@ class ObstacleAvoidance {
   float target_angle = 0;
   bool emergency_stop = false;
   bool direction_lock = false;
-  // int prev_turn = 0;
+  int prev_turn = 0;
   SplitAndMerge split_and_merge;
   std::vector<std::vector<Point>> walls;
 
  public:
   ObstacleAvoidance();
 
-  void ir_callback(const sensor_msgs::LaserScan::ConstPtr &scan_in);
+  void get_result();
 
   void update_state();
 

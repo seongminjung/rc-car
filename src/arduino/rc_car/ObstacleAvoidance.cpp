@@ -1,56 +1,88 @@
 #include "obstacle_avoidance/ObstacleAvoidance.h"
 
-#include <vector>
+#include <Arduino_AVRSTL.h>
 
-#include "ackermann_msgs/AckermannDrive.h"
-#include "obstacle_avoidance/Visualization.h"
-#include "ros/ros.h"
-#include "sensor_msgs/LaserScan.h"
-#include "visualization_msgs/MarkerArray.h"
+#include "Arduino.h"
 
-#define IR_MAX 70
+#define THROTTLE_PIN 2
+#define SERVO_PIN 5
+
+#define IR_MAX_LONG 120
+#define IR_MAX 80
 #define IR_MIN 20
-#define IR_OFFSET 7
-#define THROTTLE_FORWARD 1000  // 1000 is converted to 1
+#define THROTTLE_FORWARD 200
 #define THROTTLE_IDLE 0
-#define SERVO_LEFT 800  // 1000 is converted to 1
+#define SERVO_LEFT 800
 #define SERVO_CENTER 0
-#define SERVO_RIGHT -800  // 1000 is converted to 1
+#define SERVO_RIGHT -800
+
+// #define NOISE_ALLOWANCE 5
+// #define MAX_THROTTLE 3250
 
 ObstacleAvoidance::ObstacleAvoidance() {
-  ack_pub_ = n_.advertise<ackermann_msgs::AckermannDrive>("/rc_car/ackermann_cmd", 1);
-  marker_pub_ = n_.advertise<visualization_msgs::MarkerArray>("/rc_car/visualization_marker", 1);
-  goal_pub_ = n_.advertise<visualization_msgs::Marker>("/rc_car/local_goal", 1);
-  sub_ = n_.subscribe("/rc_car/ir", 1, &ObstacleAvoidance::ir_callback, this);
+  int pin_list[11] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10};
+  int sensor_type[11] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1};  // 0: long, 1: short
+  int get_result_clk = 0;
+  const int loopcount = 5;  // how many data to save for each sensor in killspike
+  int adc_history[11][loopcount];
+  std::vector<float> ir = {70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0};
+  float target_speed = 0;
+  float target_angle = 0;
+  int emergency_stop = 0;
+  // int prev_turn = 0;
 }
 
-void ObstacleAvoidance::ir_callback(const sensor_msgs::LaserScan::ConstPtr &scan_in) {
-  ir.clear();
-  for (int i = 0; i < 9; i++) {
-    if (std::isinf(scan_in->ranges[i])) {
-      // for Gazebo simulation
-      ir.push_back((float)IR_MAX);
-    } else {
-      ir.push_back(std::max(std::min(float(scan_in->ranges[i] * 100 - IR_OFFSET), float(IR_MAX)), float(IR_MIN)));
-    }
-  }
-  // if front three irs are less than 30, stop
-  emergency_stop = ir[3] <= IR_MIN + 10 && ir[4] <= IR_MIN + 10 && ir[5] <= IR_MIN + 10;
-
-  walls = split_and_merge.grabData(ir);
+void ObstacleAvoidance::ir_callback() {
+  get_result();
   update_state();
   get_target_angle();
   get_target_speed();
   follow_goal();
-  visualize(walls, target_angle, target_speed, marker_pub_, goal_pub_);
 }
 
-void ObstacleAvoidance::control_once(int throttle, int servo) {
-  ackermann_msgs::AckermannDrive msg;
-  // convert to actual input value
-  msg.speed = throttle / 1000.0;
-  msg.steering_angle = servo / 1000.0;
-  ack_pub_.publish(msg);
+void ObstacleAvoidance::get_result() {
+  ir.clear();
+  // read analog value
+  for (int i = 0; i < 11; i++) {
+    adc_history[i][get_result_clk] = analogRead(pin_list[i]);
+  }
+
+  for (int i = 0; i < 11; i++) {
+    // kill spike and average
+    int sum = 0, x = 0, high = 0, low = 0, avg = 0;
+    high = low = adc_history[i][0];
+    for (int j = 0; j < loopcount; j++) {
+      x = adc_history[i][j];
+      sum += x;
+      if (x > high) high = x;
+      if (x < low) low = x;
+    }
+    avg = (sum - high - low) / (loopcount - 2);
+
+    // convert voltage to centimeter
+    if (sensor_type[i] == 0) {
+      ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937);
+    } else {
+      ir[i] = float((27.61 / (avg * 5000.0 / 1023.0 - 0.1696)) * 1000.0);
+    }
+
+    // limit the range of IR distance
+    if (i == 5)
+      ir[i] = std::max(std::min(ir[i], float(IR_MAX_LONG)), float(IR_MIN));
+    else
+      ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
+  }
+
+  walls = split_and_merge.grabData(ir);
+
+  if (ir[4] < 30 || ir[5] < 30 || ir[6] < 30) {
+    if (emergency_stop < 2) emergency_stop++;
+  } else if (emergency_stop < 2) {
+    emergency_stop = 0;
+  }
+
+  get_result_clk++;
+  if (get_result_clk == loopcount) get_result_clk = 0;
 }
 
 void ObstacleAvoidance::update_state() {
@@ -235,7 +267,7 @@ void ObstacleAvoidance::guide_to_empty_space() {
       max_group_center += groups[max_group_idx][i];
     }
     max_group_center /= groups[max_group_idx].size();
-    target_angle = -1 * (max_group_center - 4) * 30;  // multiply 30 instead of 22.5
+    target_angle = -1 * (max_group_center - 5) * 30;  // multiply 30 instead of 22.5
   }
 }
 
@@ -246,17 +278,19 @@ void ObstacleAvoidance::get_target_speed() {
     return;
   }
   float angle_rad = target_angle * 3.14159 / 180.0;
-  float a = 1.5, b = 0.5;
+  float a = 1.25, b = 1.0;
   float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) + a * a * sin(angle_rad) * sin(angle_rad));
   target_speed = r;
+}
+
+void ObstacleAvoidance::control_once(int throttle, int servo) {
+  analogWrite(THROTTLE_PIN, throttle + 3000);
+  analogWrite(SERVO_PIN, servo + 3003);
 }
 
 void ObstacleAvoidance::follow_goal() {
   target_angle = std::min(std::max(target_angle, float(-90.0)), float(90.0));
   int throttle = int(target_speed * THROTTLE_FORWARD);
-  int servo = int(SERVO_LEFT * target_angle / 90.0);
-  std::printf("state: %d\t", state);
-  std::printf("speed: %.2f\t", target_speed);
-  std::printf("angle: %.2f\n", target_angle);
+  int servo = int(-1 * SERVO_LEFT * target_angle / 90.0);  // left turn is positive in code, but negative in rc car
   control_once(throttle, servo);
 }
