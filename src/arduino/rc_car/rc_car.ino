@@ -20,8 +20,7 @@ int sensor_type[11] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1};  // 0: long, 1: short
 int get_result_clk = 0;
 const int loopcount = 5;  // how many data to save for each sensor in killspike
 int adc_history[11][loopcount];
-float ir[11] = {70.0, 70.0, 70.0, 70.0, 70.0, 70.0,
-                70.0, 70.0, 70.0, 70.0, 70.0};  // array for IR distance values
+float ir[11] = {70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0};  // array for IR distance values
 
 float local_goal_speed = 0;
 float local_goal_angle = 0;
@@ -104,27 +103,6 @@ void get_result() {
       ir[i] = std::max(std::min(ir[i], float(FRONT_LIMIT)), float(IR_MIN));
     else
       ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
-
-    Serial.print(ir[1]);
-    Serial.print('\t');
-    Serial.print(ir[2]);
-    Serial.print('\t');
-    Serial.print(ir[3]);
-    Serial.print('\t');
-    Serial.print(ir[4]);
-    Serial.print('\t');
-    Serial.print(ir[5]);
-    Serial.print('\t');
-    Serial.print(ir[6]);
-    Serial.print('\t');
-    Serial.print(ir[7]);
-    Serial.print('\t');
-    Serial.print(ir[8]);
-    Serial.print('\t');
-    Serial.print(ir[9]);
-    Serial.print('\t');
-    Serial.print(ir[10]);
-    Serial.println();
   }
 
   if (ir[5] < 30 || ir[3] < 24 || ir[7] < 24 || ir[6] < 30 || ir[4] < 30) {
@@ -150,13 +128,12 @@ void find_local_goal() {
   if (ir[4] < IR_MAX && ir[5] < IR_MAX && ir[6] < IR_MAX) {
     if (ir[1] > ir[9]) {
       local_goal_angle = -90;
-    Serial.print("a");
-    }
-    else if (ir[1] < ir[9]) {
+      Serial.print("a");
+    } else if (ir[1] < ir[9]) {
       local_goal_angle = 90;
-    Serial.print("b");
+      Serial.print("b");
     }
-    
+
     local_goal_angle = ir[4] > ir[6] ? -90 : 90;
     return;
   }
@@ -240,8 +217,8 @@ void adjust_wall_distance() {
 }
 
 void adjust_one_side_parallel(int first, int second, int third, int direction) {
-  if (ir[first] == IR_MAX || ir[second] == IR_MAX || ir[third] == IR_MAX ||
-      ir[first] == IR_MIN || ir[second] == IR_MIN || ir[third] == IR_MIN)
+  if (ir[first] == IR_MAX || ir[second] == IR_MAX || ir[third] == IR_MAX || ir[first] == IR_MIN ||
+      ir[second] == IR_MIN || ir[third] == IR_MIN)
     return;  // cannot determine car-wall angle
 
   float a = ir[first], b1 = ir[second], b2 = ir[third];
@@ -250,13 +227,11 @@ void adjust_one_side_parallel(int first, int second, int third, int direction) {
 
   // triangle between ir[0] and ir[1]
   c1 = sqrt(a * a + b1 * b1 - 2 * a * b1 * cos(theta));
-  float alpha =
-      acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
+  float alpha = acos((a * a + c1 * c1 - b1 * b1) / (2 * a * c1)) * 180.0 / 3.14159;
 
   // triangle between ir[0] and ir[2]
   c2 = sqrt(a * a + b2 * b2 - 2 * a * b2 * cos(theta * 2));
-  float beta =
-      acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
+  float beta = acos((a * a + c2 * c2 - b2 * b2) / (2 * a * c2)) * 180.0 / 3.14159;
 
   float ave_angle;
 
@@ -266,8 +241,7 @@ void adjust_one_side_parallel(int first, int second, int third, int direction) {
     ave_angle = alpha;
   }
 
-  float diff_angle =
-      direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
+  float diff_angle = direction * (ave_angle - 90) * 0.5;  // left wall: +, right wall: -
   local_goal_angle -= diff_angle;
   //  Serial.print("parallel adjust amount: ");
   //  Serial.print(diff_angle);
@@ -284,14 +258,12 @@ void avoid_front_wall() {}
 void get_local_goal_speed() {
   float angle_rad = local_goal_angle * 3.14159 / 180.0;
   float a = 1.25, b = 1.0;
-  float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) +
-                           a * a * sin(angle_rad) * sin(angle_rad));
+  float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) + a * a * sin(angle_rad) * sin(angle_rad));
   local_goal_speed = r;
 }
 
 void follow_goal() {
-  local_goal_angle =
-      std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
+  local_goal_angle = std::min(std::max(local_goal_angle, float(-90.0)), float(90.0));
   int throttle = int(local_goal_speed * THROTTLE_FORWARD);
   int servo = SERVO_LEFT * local_goal_angle / 90.0;
   //  Serial.print(emergency_stop);

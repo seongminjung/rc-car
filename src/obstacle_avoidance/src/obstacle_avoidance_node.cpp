@@ -57,8 +57,6 @@ class ObstacleAvoidance {
     }
     // if front three irs are less than 20, stop
     emergency_stop = ir[3] <= IR_MIN + 10 && ir[4] <= IR_MIN + 10 && ir[5] <= IR_MIN + 10;
-    // print ir3, 4 ,5
-    std::printf("%.2f\t%.2f\t%.2f\n", ir[3], ir[4], ir[5]);
 
     walls = split_and_merge.grabData(ir);
     update_state();
