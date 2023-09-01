@@ -118,10 +118,10 @@ class ObstacleAvoidance {
         target_angle = 0;
         break;
       case 1:
-        adjust_parallel_single();
+        follow_wall_single();
         break;
       case 2:
-        adjust_parallel_and_distance_double();
+        follow_wall_double();
         break;
       case 3:
         guide_to_empty_space();
@@ -129,19 +129,24 @@ class ObstacleAvoidance {
     }
   }
 
-  void adjust_parallel_single() {
+  void follow_wall_single() {
     // angle between wall and car
     float angle;
-    if (walls[0][0].y > 0)
+    float dist_diff;
+    if (walls[0][0].y > 0) {
       angle = atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
               180.0 / 3.14159;
-    else
+      dist_diff = walls[0][0].y - 60.0;
+    } else {
       angle = atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
               180.0 / 3.14159;
-    target_angle = angle;
+      dist_diff = walls[0][walls[0].size() - 1].y + 60.0;
+    }
+
+    target_angle = angle + dist_diff;
   }
 
-  void adjust_parallel_and_distance_double() {
+  void follow_wall_double() {
     float angle1 =
         atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
         180.0 / 3.14159;  // should be left side
@@ -232,16 +237,11 @@ class ObstacleAvoidance {
             max_group_idx = i;
           }
 
-          std::printf("max_adjacent_idx: %.2f\n", max_group_adjacent_distance);
-          std::printf("cur_adjacent_idx: %.2f\n", cur_group_adjacent_distance);
-
           // max_group_idx = ir[3] > ir[5] ? 0 : 1;
           // if (abs(ir[3] - ir[5]) < 5) max_group_idx = prev_turn;
           // prev_turn = max_group_idx;
         }
       }
-      std::printf("biggest group index: %d\n", max_group_idx);
-      std::printf("biggest group size: %ld\n", groups[max_group_idx].size());
 
       // find the center of the biggest group
       float max_group_center = 0;
@@ -249,11 +249,7 @@ class ObstacleAvoidance {
         max_group_center += groups[max_group_idx][i];
       }
       max_group_center /= groups[max_group_idx].size();
-      target_angle = -1 * (max_group_center - 4) * 22.5;
-      if (target_angle == -78.75) target_angle = -90;  // full turn
-      if (target_angle == 78.75) target_angle = 90;    // full turn
-      std::printf("max_group_center: %.2f\n", max_group_center);
-      std::printf("target_angle: %.2f\n", target_angle);
+      target_angle = -1 * (max_group_center - 4) * 30;  // multiply 30 instead of 22.5
     }
   }
 
@@ -264,7 +260,7 @@ class ObstacleAvoidance {
       return;
     }
     float angle_rad = target_angle * 3.14159 / 180.0;
-    float a = 1.0, b = 0.5;
+    float a = 1.5, b = 0.5;
     float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) + a * a * sin(angle_rad) * sin(angle_rad));
     target_speed = r;
   }
@@ -273,8 +269,8 @@ class ObstacleAvoidance {
     target_angle = std::min(std::max(target_angle, float(-90.0)), float(90.0));
     int throttle = int(target_speed * THROTTLE_FORWARD);
     int servo = int(SERVO_LEFT * target_angle / 90.0);
-    // std::printf("final_goal_speed: %.2f\n", target_speed);
-    // std::printf("final_goal_angle: %.2f\n", target_angle);
+    std::printf("speed: %.2f\t", target_speed);
+    std::printf("angle: %.2f\n", target_angle);
     control_once(throttle, servo);
   }
 };
