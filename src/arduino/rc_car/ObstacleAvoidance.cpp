@@ -95,12 +95,18 @@ void ObstacleAvoidance::update_state() {
   } else if (walls.size() == 1) {
     // angle between wall and car
     float angle;
-    if (walls[0][0].y > 0)
+    float y_avg = 0;
+    for (int i = 0; i < walls[0].size(); i++) {
+      y_avg += walls[0][i].y;
+    }
+    y_avg /= walls[0].size();
+    if (y_avg > 0) {
       angle = atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
               180.0 / 3.14159;
-    else
+    } else if (y_avg < 0) {
       angle = atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
               180.0 / 3.14159;
+    }
     if (abs(angle) < 45) {
       state = 1;
     } else {
