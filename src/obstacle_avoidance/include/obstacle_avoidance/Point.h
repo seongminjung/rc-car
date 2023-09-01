@@ -2,7 +2,6 @@
 #define POINT_H
 
 struct Point {
-  int idx;  // for debugging
   float x;
   float y;
 };

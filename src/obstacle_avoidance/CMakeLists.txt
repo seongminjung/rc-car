@@ -122,6 +122,7 @@ include_directories(
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
+  src/ObstacleAvoidance.cpp
   src/SplitAndMerge.cpp
   src/Visualization.cpp
 )

@@ -2,10 +2,6 @@
 
 #include "obstacle_avoidance/Point.h"
 
-struct Wall {
-  std::vector<Point> points;
-};
-
 class SplitAndMerge {
  private:
   int threshold;  // centimeter
