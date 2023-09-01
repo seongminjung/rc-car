@@ -56,7 +56,9 @@ class ObstacleAvoidance {
       }
     }
     // if front three irs are less than 20, stop
-    emergency_stop = ir[3] == IR_MIN && ir[4] == IR_MIN && ir[5] == IR_MIN;
+    emergency_stop = ir[3] <= IR_MIN + 10 && ir[4] <= IR_MIN + 10 && ir[5] <= IR_MIN + 10;
+    // print ir3, 4 ,5
+    std::printf("%.2f\t%.2f\t%.2f\n", ir[3], ir[4], ir[5]);
 
     walls = split_and_merge.grabData(ir);
     update_state();
@@ -75,6 +77,10 @@ class ObstacleAvoidance {
   }
 
   void update_state() {
+    if (emergency_stop) {
+      state = -1;
+      return;
+    }
     if (walls.size() == 0) {
       state = 0;
     } else if (walls.size() == 1) {
@@ -131,17 +137,22 @@ class ObstacleAvoidance {
 
   void follow_wall_single() {
     // angle between wall and car
-    float angle;
-    float dist_diff;
-    if (walls[0][0].y > 0) {
+    float angle = 0;
+    float dist_diff = 0;
+    float y_avg = 0;
+    for (int i = 0; i < walls[0].size(); i++) {
+      y_avg += walls[0][i].y;
+    }
+    y_avg /= walls[0].size();
+    if (y_avg > 0) {
       angle = atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
               180.0 / 3.14159;
       dist_diff = walls[0][0].y - 60.0;
-    } else {
+    } else if (y_avg < 0) {
       angle = atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
               180.0 / 3.14159;
       dist_diff = walls[0][walls[0].size() - 1].y + 60.0;
-    }
+    }  // else if the wall is only at front, just go straight by doing nothing
 
     target_angle = angle + dist_diff;
   }
@@ -254,7 +265,7 @@ class ObstacleAvoidance {
   }
 
   void get_target_speed() {
-    if (emergency_stop) {
+    if (state == -1) {
       target_angle = 0;
       target_speed = 0;
       return;
@@ -269,6 +280,7 @@ class ObstacleAvoidance {
     target_angle = std::min(std::max(target_angle, float(-90.0)), float(90.0));
     int throttle = int(target_speed * THROTTLE_FORWARD);
     int servo = int(SERVO_LEFT * target_angle / 90.0);
+    std::printf("state: %d\t", state);
     std::printf("speed: %.2f\t", target_speed);
     std::printf("angle: %.2f\n", target_angle);
     control_once(throttle, servo);

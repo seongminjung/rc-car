@@ -48,6 +48,7 @@ void visualize_planes(std::vector<std::vector<Point>> walls, ros::Publisher mark
     Point start = walls[i][0];
     Point end = walls[i][walls[i].size() - 1];
     float length = sqrt(pow(start.x - end.x, 2) + pow(start.y - end.y, 2));
+    if (length == 0.0) length = 5;  // dot
     float angle = atan2(end.y - start.y, end.x - start.x);
 
     tf2::Quaternion q;
