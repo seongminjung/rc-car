@@ -45,14 +45,13 @@
                     <horizontal>
                         <samples>9</samples>
                         <resolution>1</resolution>
-                        <!-- clockwise -->
-                        <min_angle>1.57</min_angle>
-                        <max_angle>-1.57</max_angle>
+                        <min_angle>-1.57</min_angle>
+                        <max_angle>1.57</max_angle>
                     </horizontal>
                 </scan>
                 <range>
                     <min>0.0</min>
-                    <max>0.77</max>
+                    <max>1.57</max>
                 </range>
                 <noise>
                     <type>gaussian</type>

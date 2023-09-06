@@ -3,6 +3,7 @@
 #include <cmath>
 #include <vector>
 
+#define IR_MAX 150
 #define IR_OFFSET 7
 
 SplitAndMerge::SplitAndMerge() { threshold = 5; }
@@ -11,10 +12,10 @@ std::vector<std::vector<Point>> SplitAndMerge::grabData(std::vector<float> ir_in
   std::vector<Point> group;
   std::vector<std::vector<Point>> groups;
   for (int i = 0; i < ir_in.size(); i++) {
-    if (ir_in[i] < 70) {
+    if (ir_in[i] < IR_MAX) {
       Point point;
       point.x = (ir_in[i] + IR_OFFSET) * cos((i * 22.5 - 90) * 3.141592 / 180);
-      point.y = -1 * (ir_in[i] + IR_OFFSET) * sin((i * 22.5 - 90) * 3.141592 / 180);  // IR sensor order issue
+      point.y = (ir_in[i] + IR_OFFSET) * sin((i * 22.5 - 90) * 3.141592 / 180);
       group.push_back(point);
     } else {
       if (group.size() > 0) {

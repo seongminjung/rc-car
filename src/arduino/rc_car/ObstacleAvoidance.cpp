@@ -273,7 +273,7 @@ void ObstacleAvoidance::guide_to_empty_space() {
       max_group_center += groups[max_group_idx][i];
     }
     max_group_center /= groups[max_group_idx].size();
-    target_angle = -1 * (max_group_center - 5) * 30;  // multiply 30 instead of 22.5
+    target_angle = (max_group_center - 5) * 22.5;  // multiply 30 instead of 22.5
   }
 }
 

@@ -8,7 +8,7 @@
 #include "sensor_msgs/LaserScan.h"
 #include "visualization_msgs/MarkerArray.h"
 
-#define IR_MAX 70
+#define IR_MAX 150
 #define IR_MIN 20
 #define IR_OFFSET 7
 #define THROTTLE_FORWARD 1000  // 1000 is converted to 1
@@ -241,7 +241,7 @@ void ObstacleAvoidance::guide_to_empty_space() {
       max_group_center += groups[max_group_idx][i];
     }
     max_group_center /= groups[max_group_idx].size();
-    target_angle = -1 * (max_group_center - 4) * 30;  // multiply 30 instead of 22.5
+    target_angle = (max_group_center - 4) * 22.5;
   }
 }
 
