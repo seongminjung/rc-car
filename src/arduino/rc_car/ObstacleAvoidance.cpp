@@ -42,11 +42,11 @@ void ObstacleAvoidance::ir_callback() {
 void ObstacleAvoidance::get_result() {
   ir.clear();
   // read analog value
-  for (int i = 0; i < 11; i++) {
+  for (int i = 0; i < 9; i++) {
     adc_history[i][get_result_clk] = analogRead(pin_list[i]);
   }
 
-  for (int i = 0; i < 11; i++) {
+  for (int i = 0; i < 9; i++) {
     // kill spike and average
     int sum = 0, x = 0, high = 0, low = 0, avg = 0;
     high = low = adc_history[i][0];
@@ -267,7 +267,7 @@ void ObstacleAvoidance::guide_to_empty_space() {
       max_group_center += groups[max_group_idx][i];
     }
     max_group_center /= groups[max_group_idx].size();
-    target_angle = (max_group_center - 5) * 22.5;  // multiply 30 instead of 22.5
+    target_angle = (max_group_center - 4) * 22.5;  // multiply 30 instead of 22.5
   }
 }
 
