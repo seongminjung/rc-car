@@ -41,7 +41,7 @@ void ObstacleAvoidance::ir_callback(const sensor_msgs::LaserScan::ConstPtr &scan
   update_state();
   get_target_angle();
   get_target_speed();
-  // follow_goal();
+  follow_goal();
   visualize(walls, target_angle, target_speed, marker_pub_, goal_pub_);
 }
 
