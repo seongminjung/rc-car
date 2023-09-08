@@ -7,8 +7,7 @@
 #define THROTTLE_PIN 2
 #define SERVO_PIN 5
 
-#define IR_MAX_LONG 120
-#define IR_MAX 80
+#define IR_MAX 150
 #define IR_MIN 20
 #define THROTTLE_FORWARD 200
 #define THROTTLE_IDLE 0
@@ -16,16 +15,16 @@
 #define SERVO_CENTER 0
 #define SERVO_RIGHT -800
 
-// #define NOISE_ALLOWANCE 5
-// #define MAX_THROTTLE 3250
-
 ObstacleAvoidance::ObstacleAvoidance() {
-  int pin_list[11] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10};
-  int sensor_type[11] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1};  // 0: long, 1: short
+  int pin_list[9] = {A0, A1, A2, A3, A4, A5, A6, A7, A8};
+  int sensor_type[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};  // 0: long
+  float offset_from_center[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+  float max_offset_from_center = 0.0;
   int get_result_clk = 0;
   const int loopcount = 5;  // how many data to save for each sensor in killspike
-  int adc_history[11][loopcount];
-  std::vector<float> ir = {70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0};
+  int adc_history[9][loopcount];
+  std::vector<float> ir = {IR_MAX, IR_MAX, IR_MAX, IR_MAX, IR_MAX,
+                           IR_MAX, IR_MAX, IR_MAX, IR_MAX};  // Distance from the "center" of IR sensors
   float target_speed = 0;
   float target_angle = 0;
   int emergency_stop = 0;
@@ -61,21 +60,17 @@ void ObstacleAvoidance::get_result() {
 
     // convert voltage to centimeter
     if (sensor_type[i] == 0) {
-      ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937);
-    } else {
-      ir[i] = float((27.61 / (avg * 5000.0 / 1023.0 - 0.1696)) * 1000.0);
+      ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937 + offset_from_center[i]);
     }
 
     // limit the range of IR distance
-    if (i == 5)
-      ir[i] = std::max(std::min(ir[i], float(IR_MAX_LONG)), float(IR_MIN));
-    else
-      ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
+    ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN + max_offset_from_center));
   }
 
   walls = split_and_merge.grabData(ir);
 
-  if (ir[4] < 30 || ir[5] < 30 || ir[6] < 30) {
+  float emergency_thres = float(IR_MIN + max_offset_from_center + 20);
+  if (ir[4] < emergency_thres || ir[5] < emergency_thres || ir[6] < emergency_thres) {
     if (emergency_stop < 2) emergency_stop++;
   } else if (emergency_stop < 2) {
     emergency_stop = 0;
@@ -94,18 +89,16 @@ void ObstacleAvoidance::update_state() {
     state = 0;
   } else if (walls.size() == 1) {
     // angle between wall and car
-    float angle;
+    float angle = 0;
     float y_avg = 0;
     for (int i = 0; i < walls[0].size(); i++) {
       y_avg += walls[0][i].y;
     }
     y_avg /= walls[0].size();
-    if (y_avg > 0) {
-      angle = atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
-              180.0 / 3.14159;
-    } else if (y_avg < 0) {
-      angle = atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
-              180.0 / 3.14159;
+    if (y_avg != 0) {
+      angle =
+          atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+          180.0 / 3.14159;
     }
     if (abs(angle) < 45) {
       state = 1;
@@ -120,7 +113,7 @@ void ObstacleAvoidance::update_state() {
     float angle2 =
         atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
         180.0 / 3.14159;  // should be the right side
-    if (abs(angle1) < 45 && abs(angle2) < 45 && walls[0][0].y > 0 && walls[1][0].y < 0) {
+    if (abs(angle1) < 45 && abs(angle2) < 45 && walls[0][0].y < 0 && walls[1][0].y > 0) {
       state = 2;
     } else {
       state = 3;
@@ -157,14 +150,15 @@ void ObstacleAvoidance::follow_wall_single() {
     y_avg += walls[0][i].y;
   }
   y_avg /= walls[0].size();
+  if (y_avg != 0) {
+    angle =
+        atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+        180.0 / 3.14159;
+  }
   if (y_avg > 0) {
-    angle = atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
-            180.0 / 3.14159;
-    dist_diff = walls[0][0].y - 60.0;
+    dist_diff = walls[0][0].y - 100.0;
   } else if (y_avg < 0) {
-    angle = atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
-            180.0 / 3.14159;
-    dist_diff = walls[0][walls[0].size() - 1].y + 60.0;
+    dist_diff = walls[0][walls[0].size() - 1].y + 100.0;
   }  // else if the wall is only at front, just go straight by doing nothing
 
   target_angle = angle + dist_diff;
@@ -172,11 +166,11 @@ void ObstacleAvoidance::follow_wall_single() {
 
 void ObstacleAvoidance::follow_wall_double() {
   float angle1 =
-      atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) * 180.0 /
-      3.14159;  // should be left side
+      atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+      180.0 / 3.14159;  // should be on the left side
   float angle2 =
-      atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) * 180.0 /
-      3.14159;  // should be right side
+      atan((walls[1][0].y - walls[1][walls[1].size() - 1].y) / (walls[1][0].x - walls[1][walls[1].size() - 1].x)) *
+      180.0 / 3.14159;  // should be on the right side
   float ave_angle = (angle1 + angle2) * 0.5;
   float dist_diff = (walls[0][0].y + walls[1][walls[1].size() - 1].y) * 0.5;
   target_angle = ave_angle + dist_diff;

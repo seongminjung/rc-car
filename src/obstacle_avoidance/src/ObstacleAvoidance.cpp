@@ -41,7 +41,7 @@ void ObstacleAvoidance::ir_callback(const sensor_msgs::LaserScan::ConstPtr &scan
   update_state();
   get_target_angle();
   get_target_speed();
-  follow_goal();
+  // follow_goal();
   visualize(walls, target_angle, target_speed, marker_pub_, goal_pub_);
 }
 
@@ -62,18 +62,16 @@ void ObstacleAvoidance::update_state() {
     state = 0;
   } else if (walls.size() == 1) {
     // angle between wall and car
-    float angle;
+    float angle = 0;
     float y_avg = 0;
     for (int i = 0; i < walls[0].size(); i++) {
       y_avg += walls[0][i].y;
     }
     y_avg /= walls[0].size();
-    if (y_avg > 0) {
-      angle = atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
-              180.0 / 3.14159;
-    } else if (y_avg < 0) {
-      angle = atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
-              180.0 / 3.14159;
+    if (y_avg != 0) {
+      angle =
+          atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+          180.0 / 3.14159;
     }
     if (abs(angle) < 45) {
       state = 1;
@@ -88,7 +86,7 @@ void ObstacleAvoidance::update_state() {
     float angle2 =
         atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
         180.0 / 3.14159;  // should be the right side
-    if (abs(angle1) < 45 && abs(angle2) < 45 && walls[0][0].y > 0 && walls[1][0].y < 0) {
+    if (abs(angle1) < 45 && abs(angle2) < 45 && walls[0][0].y < 0 && walls[1][0].y > 0) {
       state = 2;
     } else {
       state = 3;
@@ -125,14 +123,15 @@ void ObstacleAvoidance::follow_wall_single() {
     y_avg += walls[0][i].y;
   }
   y_avg /= walls[0].size();
+  if (y_avg != 0) {
+    angle =
+        atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+        180.0 / 3.14159;
+  }
   if (y_avg > 0) {
-    angle = atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
-            180.0 / 3.14159;
-    dist_diff = walls[0][0].y - 60.0;
+    dist_diff = walls[0][0].y - 100.0;
   } else if (y_avg < 0) {
-    angle = atan2(walls[0][0].y - walls[0][walls[0].size() - 1].y, walls[0][0].x - walls[0][walls[0].size() - 1].x) *
-            180.0 / 3.14159;
-    dist_diff = walls[0][walls[0].size() - 1].y + 60.0;
+    dist_diff = walls[0][walls[0].size() - 1].y + 100.0;
   }  // else if the wall is only at front, just go straight by doing nothing
 
   target_angle = angle + dist_diff;
@@ -140,11 +139,11 @@ void ObstacleAvoidance::follow_wall_single() {
 
 void ObstacleAvoidance::follow_wall_double() {
   float angle1 =
-      atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) * 180.0 /
-      3.14159;  // should be left side
+      atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+      180.0 / 3.14159;  // should be on the left side
   float angle2 =
-      atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) * 180.0 /
-      3.14159;  // should be right side
+      atan((walls[1][0].y - walls[1][walls[1].size() - 1].y) / (walls[1][0].x - walls[1][walls[1].size() - 1].x)) *
+      180.0 / 3.14159;  // should be on the right side
   float ave_angle = (angle1 + angle2) * 0.5;
   float dist_diff = (walls[0][0].y + walls[1][walls[1].size() - 1].y) * 0.5;
   target_angle = ave_angle + dist_diff;
