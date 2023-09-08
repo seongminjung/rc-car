@@ -5,6 +5,8 @@
 // THR: 2000(Reverse) ~ 3000(Stay) ~ 4094(Full)
 // SER: 2240(R) ~ 3003(Center) ~ 3858(L)
 
+ObstacleAvoidance obstacle_avoidance;
+
 void setup() {
   // RTM_TimerCalc 1.40, RuntimeMicro.com
   // Timer-3 16-bit, Mode-14 Fast, Top=ICR
@@ -25,8 +27,6 @@ void setup() {
 
   // For Serial print
   Serial.begin(115200);
-
-  ObstacleAvoidance obstacle_avoidance;
 
   for (int i = 0; i < 20000; i++) {
     analogWrite(2, 3000);

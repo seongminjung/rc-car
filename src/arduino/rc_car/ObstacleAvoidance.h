@@ -1,11 +1,13 @@
 #include <Arduino_AVRSTL.h>
 
-#include "obstacle_avoidance/SplitAndMerge.h"
-#include "obstacle_avoidance/Visualization.h"
+#include "SplitAndMerge.h"
+
+#define IR_MAX 120
 
 class ObstacleAvoidance {
  private:
-  std::vector<float> ir;
+  std::vector<float> ir = {IR_MAX, IR_MAX, IR_MAX, IR_MAX, IR_MAX,
+                           IR_MAX, IR_MAX, IR_MAX, IR_MAX};  // Distance from the "center" of IR sensors
   int state = 0;
   // 0: straight
   // 1: wall parallel - adjust wall parallel
@@ -13,14 +15,23 @@ class ObstacleAvoidance {
   // 3: else - find local goal & avoid front obstacle
   float target_speed = 0;
   float target_angle = 0;
-  bool emergency_stop = false;
+  int emergency_stop = 0;
   bool direction_lock = false;
+  const int loopcount = 5;
+  int adc_history[9][5];
   int prev_turn = 0;
+  int get_result_clk = 0;
+  int pin_list[9] = {A0, A1, A2, A3, A4, A5, A6, A7, A8};
+  int sensor_type[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};  // 0: long
+  float offset_from_center[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+  float max_offset_from_center = 0.0;
   SplitAndMerge split_and_merge;
   std::vector<std::vector<Point>> walls;
 
  public:
   ObstacleAvoidance();
+
+  void ir_callback();
 
   void get_result();
 

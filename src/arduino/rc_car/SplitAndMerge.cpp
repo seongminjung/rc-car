@@ -5,6 +5,7 @@
 #include <cmath>
 #include <vector>
 
+#define IR_MAX 120
 #define IR_OFFSET 7
 
 SplitAndMerge::SplitAndMerge() { threshold = 5; }
@@ -13,7 +14,7 @@ std::vector<std::vector<Point>> SplitAndMerge::grabData(std::vector<float> ir_in
   std::vector<Point> group;
   std::vector<std::vector<Point>> groups;
   for (int i = 0; i < ir_in.size(); i++) {
-    if (ir_in[i] < 70) {
+    if (ir_in[i] < IR_MAX) {
       Point point;
       point.x = (ir_in[i] + IR_OFFSET) * cos((i * 22.5 - 90) * 3.141592 / 180);
       point.y = (ir_in[i] + IR_OFFSET) * sin((i * 22.5 - 90) * 3.141592 / 180);
@@ -80,8 +81,8 @@ std::vector<std::vector<Point>> SplitAndMerge::runSplitAndMerge(std::vector<Poin
     auto end_itr = points.end();
     std::vector<Point> points_left(ind + 1);
     std::vector<Point> points_right(points.size() - ind);
-    copy(start_itr, start_itr + ind + 1, points_left.begin());
-    copy(start_itr + ind, end_itr, points_right.begin());
+    std::copy(start_itr, start_itr + ind + 1, points_left.begin());
+    std::copy(start_itr + ind, end_itr, points_right.begin());
 
     std::vector<std::vector<Point>> result_left = runSplitAndMerge(points_left);
     std::vector<std::vector<Point>> result_right = runSplitAndMerge(points_right);

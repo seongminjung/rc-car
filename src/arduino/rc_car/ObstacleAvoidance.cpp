@@ -1,4 +1,4 @@
-#include "obstacle_avoidance/ObstacleAvoidance.h"
+#include "ObstacleAvoidance.h"
 
 #include <Arduino_AVRSTL.h>
 
@@ -7,29 +7,15 @@
 #define THROTTLE_PIN 2
 #define SERVO_PIN 5
 
-#define IR_MAX 150
+#define IR_MAX 120
 #define IR_MIN 20
-#define THROTTLE_FORWARD 200
+#define THROTTLE_FORWARD 220
 #define THROTTLE_IDLE 0
 #define SERVO_LEFT 800
 #define SERVO_CENTER 0
 #define SERVO_RIGHT -800
 
-ObstacleAvoidance::ObstacleAvoidance() {
-  int pin_list[9] = {A0, A1, A2, A3, A4, A5, A6, A7, A8};
-  int sensor_type[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};  // 0: long
-  float offset_from_center[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-  float max_offset_from_center = 0.0;
-  int get_result_clk = 0;
-  const int loopcount = 5;  // how many data to save for each sensor in killspike
-  int adc_history[9][loopcount];
-  std::vector<float> ir = {IR_MAX, IR_MAX, IR_MAX, IR_MAX, IR_MAX,
-                           IR_MAX, IR_MAX, IR_MAX, IR_MAX};  // Distance from the "center" of IR sensors
-  float target_speed = 0;
-  float target_angle = 0;
-  int emergency_stop = 0;
-  // int prev_turn = 0;
-}
+ObstacleAvoidance::ObstacleAvoidance() {}
 
 void ObstacleAvoidance::ir_callback() {
   get_result();
@@ -40,7 +26,6 @@ void ObstacleAvoidance::ir_callback() {
 }
 
 void ObstacleAvoidance::get_result() {
-  ir.clear();
   // read analog value
   for (int i = 0; i < 9; i++) {
     adc_history[i][get_result_clk] = analogRead(pin_list[i]);
@@ -66,14 +51,11 @@ void ObstacleAvoidance::get_result() {
     // limit the range of IR distance
     ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN + max_offset_from_center));
   }
-
   walls = split_and_merge.grabData(ir);
 
   float emergency_thres = float(IR_MIN + max_offset_from_center + 20);
   if (ir[4] < emergency_thres || ir[5] < emergency_thres || ir[6] < emergency_thres) {
-    if (emergency_stop < 2) emergency_stop++;
-  } else if (emergency_stop < 2) {
-    emergency_stop = 0;
+    emergency_stop = 1;
   }
 
   get_result_clk++;
@@ -197,10 +179,10 @@ void ObstacleAvoidance::guide_to_empty_space() {
     }
   }
   // print the index of IR sensors with furthest distance
-  // for (int i = 0; i < max_group.size(); i++) {
-  //   std::printf("%d  ", max_group[i]);
-  // }
-  // std::printf("\n");
+  //   for (int i = 0; i < max_group.size(); i++) {
+  //     std::printf("%d  ", max_group[i]);
+  //   }
+  //   std::printf("\n");
 
   if (max_group.size() > 0) {
     // group the consecutive numbers. e.g. (2,3), (5,6,7,8)
@@ -291,6 +273,17 @@ void ObstacleAvoidance::control_once(int throttle, int servo) {
 void ObstacleAvoidance::follow_goal() {
   target_angle = std::min(std::max(target_angle, float(-90.0)), float(90.0));
   int throttle = int(target_speed * THROTTLE_FORWARD);
-  int servo = int(-1 * SERVO_LEFT * target_angle / 90.0);  // left turn is positive in code, but negative in rc car
+  int servo =
+      int(SERVO_LEFT * target_angle /
+          90.0);  // left turn is positive in code, but negative in rc car
   control_once(throttle, servo);
+  Serial.print("state: ");
+  Serial.print(state);
+  Serial.print("\t");
+  Serial.print("speed: ");
+  Serial.print(target_speed);
+  Serial.print("\t");
+  Serial.print("angle: ");
+  Serial.print(target_angle);
+  Serial.print("\n");
 }
