@@ -2,7 +2,8 @@
 
 #include "SplitAndMerge.h"
 
-#define IR_MAX 120
+#define IR_OFFSET 11
+#define IR_MAX 150 + IR_OFFSET
 
 class ObstacleAvoidance {
  private:
@@ -21,10 +22,8 @@ class ObstacleAvoidance {
   int adc_history[9][5];
   int prev_turn = 0;
   int get_result_clk = 0;
-  int pin_list[9] = {A0, A1, A2, A3, A4, A5, A6, A7, A8};
+  int pin_list[9] = {A1, A2, A3, A4, A5, A6, A7, A8, A9};
   int sensor_type[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};  // 0: long
-  float offset_from_center[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-  float max_offset_from_center = 0.0;
   SplitAndMerge split_and_merge;
   std::vector<std::vector<Point>> walls;
 

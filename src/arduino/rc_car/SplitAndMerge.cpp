@@ -5,8 +5,8 @@
 #include <cmath>
 #include <vector>
 
-#define IR_MAX 120
-#define IR_OFFSET 7
+#define IR_OFFSET 11
+#define IR_MAX 150 + IR_OFFSET
 
 SplitAndMerge::SplitAndMerge() { threshold = 5; }
 
@@ -16,8 +16,8 @@ std::vector<std::vector<Point>> SplitAndMerge::grabData(std::vector<float> ir_in
   for (int i = 0; i < ir_in.size(); i++) {
     if (ir_in[i] < IR_MAX) {
       Point point;
-      point.x = (ir_in[i] + IR_OFFSET) * cos((i * 22.5 - 90) * 3.141592 / 180);
-      point.y = (ir_in[i] + IR_OFFSET) * sin((i * 22.5 - 90) * 3.141592 / 180);
+      point.x = (ir_in[i]) * cos((i * 22.5 - 90) * 3.141592 / 180);
+      point.y = (ir_in[i]) * sin((i * 22.5 - 90) * 3.141592 / 180);
       group.push_back(point);
     } else {
       if (group.size() > 0) {

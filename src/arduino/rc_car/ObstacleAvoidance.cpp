@@ -7,8 +7,9 @@
 #define THROTTLE_PIN 2
 #define SERVO_PIN 5
 
-#define IR_MAX 120
-#define IR_MIN 20
+#define IR_OFFSET 11
+#define IR_MAX 150 + IR_OFFSET
+#define IR_MIN 20 + IR_OFFSET
 #define THROTTLE_FORWARD 220
 #define THROTTLE_IDLE 0
 #define SERVO_LEFT 800
@@ -45,21 +46,27 @@ void ObstacleAvoidance::get_result() {
 
     // convert voltage to centimeter
     if (sensor_type[i] == 0) {
-      ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937 + offset_from_center[i]);
+      ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937 + IR_OFFSET);
     }
 
     // limit the range of IR distance
-    ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN + max_offset_from_center));
+//    ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
   }
   walls = split_and_merge.grabData(ir);
 
-  float emergency_thres = float(IR_MIN + max_offset_from_center + 20);
-  if (ir[4] < emergency_thres || ir[5] < emergency_thres || ir[6] < emergency_thres) {
+  float emergency_thres = float(IR_MIN + 10);
+  if (ir[3] < emergency_thres || ir[4] < emergency_thres || ir[5] < emergency_thres) {
     emergency_stop = 1;
   }
 
   get_result_clk++;
   if (get_result_clk == loopcount) get_result_clk = 0;
+//  Serial.println(ir[4]);
+//  for(int i=0; i<9; i++) {
+//    Serial.print(ir[i]);
+//    Serial.print(" ");
+//  }
+//  Serial.println();
 }
 
 void ObstacleAvoidance::update_state() {
@@ -85,7 +92,7 @@ void ObstacleAvoidance::update_state() {
     if (abs(angle) < 45) {
       state = 1;
     } else {
-      state = 3;
+      state = 1;
     }
   } else if (walls.size() == 2) {
     // angle between wall and car
@@ -277,13 +284,13 @@ void ObstacleAvoidance::follow_goal() {
       int(SERVO_LEFT * target_angle /
           90.0);  // left turn is positive in code, but negative in rc car
   control_once(throttle, servo);
-  Serial.print("state: ");
-  Serial.print(state);
-  Serial.print("\t");
-  Serial.print("speed: ");
-  Serial.print(target_speed);
-  Serial.print("\t");
-  Serial.print("angle: ");
-  Serial.print(target_angle);
-  Serial.print("\n");
+//  Serial.print("state: ");
+//  Serial.print(state);
+//  Serial.print("\t");
+//  Serial.print("speed: ");
+//  Serial.print(target_speed);
+//  Serial.print("\t");
+//  Serial.print("angle: ");
+//  Serial.print(target_angle);
+//  Serial.print("\n");
 }
