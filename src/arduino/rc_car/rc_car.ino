@@ -7,7 +7,6 @@
 
 ObstacleAvoidance obstacle_avoidance;
 
-unsigned long start = millis();
 void setup() {
   // RTM_TimerCalc 1.40, RuntimeMicro.com
   // Timer-3 16-bit, Mode-14 Fast, Top=ICR
@@ -35,8 +34,4 @@ void setup() {
   
 }
 
-void loop() { obstacle_avoidance.ir_callback(); 
-  Serial.print(millis() - start);
-  Serial.println();
-  start = millis();
-}
+void loop() { obstacle_avoidance.ir_callback(); }

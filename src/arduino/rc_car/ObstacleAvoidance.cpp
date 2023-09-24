@@ -50,7 +50,7 @@ void ObstacleAvoidance::get_result() {
     }
 
     // limit the range of IR distance
-//    ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
+    ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
   }
   walls = split_and_merge.grabData(ir);
 
@@ -61,12 +61,11 @@ void ObstacleAvoidance::get_result() {
 
   get_result_clk++;
   if (get_result_clk == loopcount) get_result_clk = 0;
-//  Serial.println(ir[4]);
-//  for(int i=0; i<9; i++) {
-//    Serial.print(ir[i]);
-//    Serial.print(" ");
-//  }
-//  Serial.println();
+  for (int i = 0; i < 9; i++) {
+    Serial.print(ir[i]);
+    Serial.print(" ");
+  }
+  Serial.println();
 }
 
 void ObstacleAvoidance::update_state() {
@@ -89,6 +88,7 @@ void ObstacleAvoidance::update_state() {
           atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
           180.0 / 3.14159;
     }
+    if (isnan(angle)) angle = 0;
     if (abs(angle) < 45) {
       state = 1;
     } else {
@@ -102,6 +102,8 @@ void ObstacleAvoidance::update_state() {
     float angle2 =
         atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
         180.0 / 3.14159;  // should be the right side
+    if (isnan(angle1)) angle1 = 0;
+    if (isnan(angle2)) angle2 = 0;
     if (abs(angle1) < 45 && abs(angle2) < 45 && walls[0][0].y < 0 && walls[1][0].y > 0) {
       state = 2;
     } else {
@@ -144,6 +146,7 @@ void ObstacleAvoidance::follow_wall_single() {
         atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
         180.0 / 3.14159;
   }
+  if (isnan(angle)) angle = 0;
   if (y_avg > 0) {
     dist_diff = walls[0][0].y - 100.0;
   } else if (y_avg < 0) {
@@ -160,6 +163,8 @@ void ObstacleAvoidance::follow_wall_double() {
   float angle2 =
       atan((walls[1][0].y - walls[1][walls[1].size() - 1].y) / (walls[1][0].x - walls[1][walls[1].size() - 1].x)) *
       180.0 / 3.14159;  // should be on the right side
+  if (isnan(angle1)) angle1 = 0;
+  if (isnan(angle2)) angle2 = 0;
   float ave_angle = (angle1 + angle2) * 0.5;
   float dist_diff = (walls[0][0].y + walls[1][walls[1].size() - 1].y) * 0.5;
   target_angle = ave_angle + dist_diff;
