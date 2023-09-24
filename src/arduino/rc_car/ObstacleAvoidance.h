@@ -9,6 +9,7 @@ class ObstacleAvoidance {
  private:
   std::vector<float> ir = {IR_MAX, IR_MAX, IR_MAX, IR_MAX, IR_MAX,
                            IR_MAX, IR_MAX, IR_MAX, IR_MAX};  // Distance from the "center" of IR sensors
+  float long_ir = 550;
   int state = 0;
   // 0: straight
   // 1: wall parallel - adjust wall parallel
@@ -20,6 +21,7 @@ class ObstacleAvoidance {
   bool direction_lock = false;
   const int loopcount = 5;
   int adc_history[9][5];
+  int long_adc_history[5];
   int prev_turn = 0;
   int get_result_clk = 0;
   int pin_list[9] = {A1, A2, A3, A4, A5, A6, A7, A8, A9};

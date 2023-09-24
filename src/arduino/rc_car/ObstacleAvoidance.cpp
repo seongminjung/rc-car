@@ -31,26 +31,46 @@ void ObstacleAvoidance::get_result() {
   for (int i = 0; i < 9; i++) {
     adc_history[i][get_result_clk] = analogRead(pin_list[i]);
   }
+  long_adc_history[get_result_clk] = analogRead(A15);
 
-  for (int i = 0; i < 9; i++) {
-    // kill spike and average
-    int sum = 0, x = 0, high = 0, low = 0, avg = 0;
-    high = low = adc_history[i][0];
-    for (int j = 0; j < loopcount; j++) {
-      x = adc_history[i][j];
-      sum += x;
-      if (x > high) high = x;
-      if (x < low) low = x;
+  for (int i = 0; i < 9 + 1; i++) {
+    if (i < 9) {
+      // kill spike and average
+      int sum = 0, x = 0, high = 0, low = 0, avg = 0;
+      high = low = adc_history[i][0];
+      for (int j = 0; j < loopcount; j++) {
+        x = adc_history[i][j];
+        sum += x;
+        if (x > high) high = x;
+        if (x < low) low = x;
+      }
+      avg = (sum - high - low) / (loopcount - 2);
+
+      // convert voltage to centimeter
+      if (sensor_type[i] == 0) {
+        ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937 + IR_OFFSET);
+      }
+
+      // limit the range of IR distance
+      ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
+    } else if (i == 9) {
+      // kill spike and average
+      int sum = 0, x = 0, high = 0, low = 0, avg = 0;
+      high = low = long_adc_history[0];
+      for (int j = 0; j < loopcount; j++) {
+        x = long_adc_history[i][j];
+        sum += x;
+        if (x > high) high = x;
+        if (x < low) low = x;
+      }
+      avg = (sum - high - low) / (loopcount - 2);
+
+      // convert voltage to centimeter
+      long_ir = 1 / ((avg - 1125) / 137500);
+
+      // limit the range of IR distance
+      long_ir = std::max(std::min(long_ir, float(550)), float(150));
     }
-    avg = (sum - high - low) / (loopcount - 2);
-
-    // convert voltage to centimeter
-    if (sensor_type[i] == 0) {
-      ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937 + IR_OFFSET);
-    }
-
-    // limit the range of IR distance
-    ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
   }
   walls = split_and_merge.grabData(ir);
 
@@ -71,6 +91,10 @@ void ObstacleAvoidance::get_result() {
 void ObstacleAvoidance::update_state() {
   if (emergency_stop) {
     state = -1;
+    return;
+  }
+  if (long_ir == 550) {
+    state = 4;
     return;
   }
   if (walls.size() == 0) {
@@ -128,6 +152,9 @@ void ObstacleAvoidance::get_target_angle() {
       break;
     case 3:
       guide_to_empty_space();
+      break;
+    case 4:
+      target_angle = 0;
       break;
   }
 }
@@ -269,6 +296,10 @@ void ObstacleAvoidance::get_target_speed() {
   if (state == -1) {
     target_angle = 0;
     target_speed = 0;
+    return;
+  } else if (state == 4) {
+    target_angle = 0;
+    target_speed = 1.5;
     return;
   }
   float angle_rad = target_angle * 3.14159 / 180.0;
