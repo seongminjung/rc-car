@@ -26,7 +26,7 @@ void setup() {
   TCCR3B |= 2;  // Prescale=8, Enable Timer
 
   // For Serial print
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   for (int i = 0; i < 20000; i++) {
     analogWrite(2, 3000);

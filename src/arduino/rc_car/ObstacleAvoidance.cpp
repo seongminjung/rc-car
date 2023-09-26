@@ -53,12 +53,13 @@ void ObstacleAvoidance::get_result() {
 
       // limit the range of IR distance
       ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
-    } else if (i == 9) {
+    } 
+    else if (i == 9) {
       // kill spike and average
-      int sum = 0, x = 0, high = 0, low = 0, avg = 0;
+      float sum = 0, x = 0, high = 0, low = 0, avg = 0;
       high = low = long_adc_history[0];
       for (int j = 0; j < loopcount; j++) {
-        x = long_adc_history[i][j];
+        x = long_adc_history[j];
         sum += x;
         if (x > high) high = x;
         if (x < low) low = x;
@@ -66,10 +67,10 @@ void ObstacleAvoidance::get_result() {
       avg = (sum - high - low) / (loopcount - 2);
 
       // convert voltage to centimeter
-      long_ir = 1 / ((avg - 1125) / 137500);
-
-      // limit the range of IR distance
-      long_ir = std::max(std::min(long_ir, float(550)), float(150));
+      long_ir = 137500.0 / (avg * (5000.0 / 1023.0) - 1125);
+//
+//      // limit the range of IR distance
+      long_ir = std::max(std::min(long_ir, float(400)), float(100));
     }
   }
   walls = split_and_merge.grabData(ir);
@@ -81,20 +82,18 @@ void ObstacleAvoidance::get_result() {
 
   get_result_clk++;
   if (get_result_clk == loopcount) get_result_clk = 0;
-  for (int i = 0; i < 9; i++) {
-    Serial.print(ir[i]);
-    Serial.print(" ");
-  }
+
+//  for (int i=0; i<9; i++){
+//    Serial.print(ir[i]);
+//    Serial.print(" ");
+//  }
+  Serial.print(long_ir);
   Serial.println();
 }
 
 void ObstacleAvoidance::update_state() {
   if (emergency_stop) {
     state = -1;
-    return;
-  }
-  if (long_ir == 550) {
-    state = 4;
     return;
   }
   if (walls.size() == 0) {
@@ -109,8 +108,8 @@ void ObstacleAvoidance::update_state() {
     y_avg /= walls[0].size();
     if (y_avg != 0) {
       angle =
-          atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
-          180.0 / 3.14159;
+        atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+        180.0 / 3.14159;
     }
     if (isnan(angle)) angle = 0;
     if (abs(angle) < 45) {
@@ -121,11 +120,11 @@ void ObstacleAvoidance::update_state() {
   } else if (walls.size() == 2) {
     // angle between wall and car
     float angle1 =
-        atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
-        180.0 / 3.14159;  // should be the left side
+      atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
+      180.0 / 3.14159;  // should be the left side
     float angle2 =
-        atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
-        180.0 / 3.14159;  // should be the right side
+      atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
+      180.0 / 3.14159;  // should be the right side
     if (isnan(angle1)) angle1 = 0;
     if (isnan(angle2)) angle2 = 0;
     if (abs(angle1) < 45 && abs(angle2) < 45 && walls[0][0].y < 0 && walls[1][0].y > 0) {
@@ -170,8 +169,8 @@ void ObstacleAvoidance::follow_wall_single() {
   y_avg /= walls[0].size();
   if (y_avg != 0) {
     angle =
-        atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
-        180.0 / 3.14159;
+      atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+      180.0 / 3.14159;
   }
   if (isnan(angle)) angle = 0;
   if (y_avg > 0) {
@@ -185,11 +184,11 @@ void ObstacleAvoidance::follow_wall_single() {
 
 void ObstacleAvoidance::follow_wall_double() {
   float angle1 =
-      atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
-      180.0 / 3.14159;  // should be on the left side
+    atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+    180.0 / 3.14159;  // should be on the left side
   float angle2 =
-      atan((walls[1][0].y - walls[1][walls[1].size() - 1].y) / (walls[1][0].x - walls[1][walls[1].size() - 1].x)) *
-      180.0 / 3.14159;  // should be on the right side
+    atan((walls[1][0].y - walls[1][walls[1].size() - 1].y) / (walls[1][0].x - walls[1][walls[1].size() - 1].x)) *
+    180.0 / 3.14159;  // should be on the right side
   if (isnan(angle1)) angle1 = 0;
   if (isnan(angle2)) angle2 = 0;
   float ave_angle = (angle1 + angle2) * 0.5;
@@ -297,9 +296,13 @@ void ObstacleAvoidance::get_target_speed() {
     target_angle = 0;
     target_speed = 0;
     return;
-  } else if (state == 4) {
-    target_angle = 0;
-    target_speed = 1.5;
+  }
+  if ((state == 0 || state == 1 || (ir[3] == IR_MAX && ir[4] == IR_MAX && ir[5] == IR_MAX)) && long_ir == 400) {
+    target_speed = 1.65;
+    return;
+  }
+  if (ir[4] < 100) {
+    target_speed = 0;
     return;
   }
   float angle_rad = target_angle * 3.14159 / 180.0;
@@ -317,16 +320,16 @@ void ObstacleAvoidance::follow_goal() {
   target_angle = std::min(std::max(target_angle, float(-90.0)), float(90.0));
   int throttle = int(target_speed * THROTTLE_FORWARD);
   int servo =
-      int(SERVO_LEFT * target_angle /
-          90.0);  // left turn is positive in code, but negative in rc car
+    int(SERVO_LEFT * target_angle /
+        90.0);  // left turn is positive in code, but negative in rc car
   control_once(throttle, servo);
-//  Serial.print("state: ");
-//  Serial.print(state);
-//  Serial.print("\t");
-//  Serial.print("speed: ");
-//  Serial.print(target_speed);
-//  Serial.print("\t");
-//  Serial.print("angle: ");
-//  Serial.print(target_angle);
-//  Serial.print("\n");
+  //  Serial.print("state: ");
+  //  Serial.print(state);
+  //  Serial.print("\t");
+  //  Serial.print("speed: ");
+  //  Serial.print(target_speed);
+  //  Serial.print("\t");
+  //  Serial.print("angle: ");
+  //  Serial.print(target_angle);
+  //  Serial.print("\n");
 }
