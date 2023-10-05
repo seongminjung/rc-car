@@ -53,8 +53,7 @@ void ObstacleAvoidance::get_result() {
 
       // limit the range of IR distance
       ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
-    } 
-    else if (i == 9) {
+    } else if (i == 9) {
       // kill spike and average
       float sum = 0, x = 0, high = 0, low = 0, avg = 0;
       high = low = long_adc_history[0];
@@ -151,9 +150,6 @@ void ObstacleAvoidance::get_target_angle() {
       break;
     case 3:
       guide_to_empty_space();
-      break;
-    case 4:
-      target_angle = 0;
       break;
   }
 }
@@ -297,8 +293,8 @@ void ObstacleAvoidance::get_target_speed() {
     target_speed = 0;
     return;
   }
-  if ((state == 0 || state == 1 || (ir[3] == IR_MAX && ir[4] == IR_MAX && ir[5] == IR_MAX)) && long_ir == 400) {
-    target_speed = 1.65;
+  if (target_angle < 10 && target_angle > -10) {
+    target_speed = 1.5;
     return;
   }
   if (ir[4] < 100) {
