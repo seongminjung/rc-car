@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /LaserScan1
       Splitter Ratio: 0.5
     Tree Height: 322
   - Class: rviz/Selection
@@ -83,12 +84,7 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        ir:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        ir_base:
+        horizontal_laser_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -184,7 +180,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.009999999776482582
       Style: Flat Squares
-      Topic: /rc_car/ir
+      Topic: /scan
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -194,7 +190,7 @@ Visualization Manager:
       Marker Topic: /rc_car/visualization_marker
       Name: MarkerArray
       Namespaces:
-        plane: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -233,7 +229,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.158346652984619
+      Distance: 6.127626895904541
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -271,5 +267,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1394
-  X: 1107
-  Y: 568
+  X: 2686
+  Y: 591

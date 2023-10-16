@@ -8,10 +8,10 @@ from pynput.keyboard import Key, KeyCode
 from geometry_msgs.msg import Twist
 
 
-MAX_VELOCITY = 1.0
-MAX_ROTATION = 3.0
-LINEAR_ACCEL = 10.0
-LINEAR_DECEL = 2.0
+MAX_VELOCITY = 2.0
+MAX_ROTATION = 2.0
+LINEAR_ACCEL = 1.0
+LINEAR_DECEL = 1.0
 ANGULAR_ACCEL = 50.0
 ANGULAR_DECEL = 50.0
 

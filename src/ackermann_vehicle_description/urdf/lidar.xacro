@@ -3,11 +3,11 @@
 
     <joint name="head_lidar_joint" type="fixed">
         <parent link="base_link"/>
-        <child link="head_lidar"/>
+        <child link="horizontal_laser_link"/>
         <origin xyz="0 0 0.1" rpy="0 0 0"/>
     </joint>
 
-    <link name="head_lidar">
+    <link name="horizontal_laser_link">
         <visual>
             <geometry>
                 <cylinder radius="0.05" length="0.02"/>
@@ -16,13 +16,13 @@
         </visual>
     </link>
 
-    <gazebo reference="head_lidar">
+    <gazebo reference="horizontal_laser_link">
         <material>Gazebo/Red</material>
 
         <sensor name="head_lidar_sensor" type="ray">
             <pose> 0 0 0 0 0 0 </pose>
-            <visualize>false</visualize>
-            <update_rate>40</update_rate>
+            <visualize>true</visualize>
+            <update_rate>10</update_rate>
             <ray>
                 <scan>
                     <horizontal>
@@ -33,8 +33,8 @@
                     </horizontal>
                 </scan>
                 <range>
-                    <min>0.1</min>
-                    <max>10.0</max>
+                    <min>0.15</min>
+                    <max>12.0</max>
                 </range>
                 <noise>
                     <type>gaussian</type>
@@ -47,8 +47,8 @@
                 </noise>
             </ray>
             <plugin name="laser_controller" filename="libgazebo_ros_laser.so">
-                <topicName>laser/scan</topicName>
-                <frameName>head_lidar</frameName>
+                <topicName>/scan</topicName>
+                <frameName>horizontal_laser_link</frameName>
             </plugin>
         </sensor>
     </gazebo>
