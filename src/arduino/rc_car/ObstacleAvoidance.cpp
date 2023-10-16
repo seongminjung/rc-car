@@ -1,4 +1,4 @@
-#include "obstacle_avoidance/ObstacleAvoidance.h"
+#include "ObstacleAvoidance.h"
 
 #include <Arduino_AVRSTL.h>
 
@@ -7,29 +7,16 @@
 #define THROTTLE_PIN 2
 #define SERVO_PIN 5
 
-#define IR_MAX 150
-#define IR_MIN 20
-#define THROTTLE_FORWARD 200
+#define IR_OFFSET 11
+#define IR_MAX 150 + IR_OFFSET
+#define IR_MIN 20 + IR_OFFSET
+#define THROTTLE_FORWARD 220
 #define THROTTLE_IDLE 0
 #define SERVO_LEFT 800
 #define SERVO_CENTER 0
 #define SERVO_RIGHT -800
 
-ObstacleAvoidance::ObstacleAvoidance() {
-  int pin_list[9] = {A0, A1, A2, A3, A4, A5, A6, A7, A8};
-  int sensor_type[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};  // 0: long
-  float offset_from_center[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-  float max_offset_from_center = 0.0;
-  int get_result_clk = 0;
-  const int loopcount = 5;  // how many data to save for each sensor in killspike
-  int adc_history[9][loopcount];
-  std::vector<float> ir = {IR_MAX, IR_MAX, IR_MAX, IR_MAX, IR_MAX,
-                           IR_MAX, IR_MAX, IR_MAX, IR_MAX};  // Distance from the "center" of IR sensors
-  float target_speed = 0;
-  float target_angle = 0;
-  int emergency_stop = 0;
-  // int prev_turn = 0;
-}
+ObstacleAvoidance::ObstacleAvoidance() {}
 
 void ObstacleAvoidance::ir_callback() {
   get_result();
@@ -40,44 +27,67 @@ void ObstacleAvoidance::ir_callback() {
 }
 
 void ObstacleAvoidance::get_result() {
-  ir.clear();
   // read analog value
   for (int i = 0; i < 9; i++) {
     adc_history[i][get_result_clk] = analogRead(pin_list[i]);
   }
+  long_adc_history[get_result_clk] = analogRead(A15);
 
-  for (int i = 0; i < 9; i++) {
-    // kill spike and average
-    int sum = 0, x = 0, high = 0, low = 0, avg = 0;
-    high = low = adc_history[i][0];
-    for (int j = 0; j < loopcount; j++) {
-      x = adc_history[i][j];
-      sum += x;
-      if (x > high) high = x;
-      if (x < low) low = x;
+  for (int i = 0; i < 9 + 1; i++) {
+    if (i < 9) {
+      // kill spike and average
+      int sum = 0, x = 0, high = 0, low = 0, avg = 0;
+      high = low = adc_history[i][0];
+      for (int j = 0; j < loopcount; j++) {
+        x = adc_history[i][j];
+        sum += x;
+        if (x > high) high = x;
+        if (x < low) low = x;
+      }
+      avg = (sum - high - low) / (loopcount - 2);
+
+      // convert voltage to centimeter
+      if (sensor_type[i] == 0) {
+        ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937 + IR_OFFSET);
+      }
+
+      // limit the range of IR distance
+      ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN));
+    } else if (i == 9) {
+      // kill spike and average
+      float sum = 0, x = 0, high = 0, low = 0, avg = 0;
+      high = low = long_adc_history[0];
+      for (int j = 0; j < loopcount; j++) {
+        x = long_adc_history[j];
+        sum += x;
+        if (x > high) high = x;
+        if (x < low) low = x;
+      }
+      avg = (sum - high - low) / (loopcount - 2);
+
+      // convert voltage to centimeter
+      long_ir = 137500.0 / (avg * (5000.0 / 1023.0) - 1125);
+//
+//      // limit the range of IR distance
+      long_ir = std::max(std::min(long_ir, float(400)), float(100));
     }
-    avg = (sum - high - low) / (loopcount - 2);
-
-    // convert voltage to centimeter
-    if (sensor_type[i] == 0) {
-      ir[i] = float(10650.08 * pow(avg, -0.935) - 3.937 + offset_from_center[i]);
-    }
-
-    // limit the range of IR distance
-    ir[i] = std::max(std::min(ir[i], float(IR_MAX)), float(IR_MIN + max_offset_from_center));
   }
-
   walls = split_and_merge.grabData(ir);
 
-  float emergency_thres = float(IR_MIN + max_offset_from_center + 20);
-  if (ir[4] < emergency_thres || ir[5] < emergency_thres || ir[6] < emergency_thres) {
-    if (emergency_stop < 2) emergency_stop++;
-  } else if (emergency_stop < 2) {
-    emergency_stop = 0;
+  float emergency_thres = float(IR_MIN + 10);
+  if (ir[3] < emergency_thres || ir[4] < emergency_thres || ir[5] < emergency_thres) {
+    emergency_stop = 1;
   }
 
   get_result_clk++;
   if (get_result_clk == loopcount) get_result_clk = 0;
+
+//  for (int i=0; i<9; i++){
+//    Serial.print(ir[i]);
+//    Serial.print(" ");
+//  }
+  Serial.print(long_ir);
+  Serial.println();
 }
 
 void ObstacleAvoidance::update_state() {
@@ -97,22 +107,25 @@ void ObstacleAvoidance::update_state() {
     y_avg /= walls[0].size();
     if (y_avg != 0) {
       angle =
-          atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
-          180.0 / 3.14159;
+        atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+        180.0 / 3.14159;
     }
+    if (isnan(angle)) angle = 0;
     if (abs(angle) < 45) {
       state = 1;
     } else {
-      state = 3;
+      state = 1;
     }
   } else if (walls.size() == 2) {
     // angle between wall and car
     float angle1 =
-        atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
-        180.0 / 3.14159;  // should be the left side
+      atan2(walls[0][walls[0].size() - 1].y - walls[0][0].y, walls[0][walls[0].size() - 1].x - walls[0][0].x) *
+      180.0 / 3.14159;  // should be the left side
     float angle2 =
-        atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
-        180.0 / 3.14159;  // should be the right side
+      atan2(walls[1][0].y - walls[1][walls[1].size() - 1].y, walls[1][0].x - walls[1][walls[1].size() - 1].x) *
+      180.0 / 3.14159;  // should be the right side
+    if (isnan(angle1)) angle1 = 0;
+    if (isnan(angle2)) angle2 = 0;
     if (abs(angle1) < 45 && abs(angle2) < 45 && walls[0][0].y < 0 && walls[1][0].y > 0) {
       state = 2;
     } else {
@@ -152,9 +165,10 @@ void ObstacleAvoidance::follow_wall_single() {
   y_avg /= walls[0].size();
   if (y_avg != 0) {
     angle =
-        atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
-        180.0 / 3.14159;
+      atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+      180.0 / 3.14159;
   }
+  if (isnan(angle)) angle = 0;
   if (y_avg > 0) {
     dist_diff = walls[0][0].y - 100.0;
   } else if (y_avg < 0) {
@@ -166,11 +180,13 @@ void ObstacleAvoidance::follow_wall_single() {
 
 void ObstacleAvoidance::follow_wall_double() {
   float angle1 =
-      atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
-      180.0 / 3.14159;  // should be on the left side
+    atan((walls[0][walls[0].size() - 1].y - walls[0][0].y) / (walls[0][walls[0].size() - 1].x - walls[0][0].x)) *
+    180.0 / 3.14159;  // should be on the left side
   float angle2 =
-      atan((walls[1][0].y - walls[1][walls[1].size() - 1].y) / (walls[1][0].x - walls[1][walls[1].size() - 1].x)) *
-      180.0 / 3.14159;  // should be on the right side
+    atan((walls[1][0].y - walls[1][walls[1].size() - 1].y) / (walls[1][0].x - walls[1][walls[1].size() - 1].x)) *
+    180.0 / 3.14159;  // should be on the right side
+  if (isnan(angle1)) angle1 = 0;
+  if (isnan(angle2)) angle2 = 0;
   float ave_angle = (angle1 + angle2) * 0.5;
   float dist_diff = (walls[0][0].y + walls[1][walls[1].size() - 1].y) * 0.5;
   target_angle = ave_angle + dist_diff;
@@ -197,10 +213,10 @@ void ObstacleAvoidance::guide_to_empty_space() {
     }
   }
   // print the index of IR sensors with furthest distance
-  // for (int i = 0; i < max_group.size(); i++) {
-  //   std::printf("%d  ", max_group[i]);
-  // }
-  // std::printf("\n");
+  //   for (int i = 0; i < max_group.size(); i++) {
+  //     std::printf("%d  ", max_group[i]);
+  //   }
+  //   std::printf("\n");
 
   if (max_group.size() > 0) {
     // group the consecutive numbers. e.g. (2,3), (5,6,7,8)
@@ -277,6 +293,14 @@ void ObstacleAvoidance::get_target_speed() {
     target_speed = 0;
     return;
   }
+  if (target_angle < 10 && target_angle > -10) {
+    target_speed = 1.5;
+    return;
+  }
+  if (ir[4] < 100) {
+    target_speed = 0;
+    return;
+  }
   float angle_rad = target_angle * 3.14159 / 180.0;
   float a = 1.25, b = 1.0;
   float r = (a * b) / sqrt(b * b * cos(angle_rad) * cos(angle_rad) + a * a * sin(angle_rad) * sin(angle_rad));
@@ -291,6 +315,17 @@ void ObstacleAvoidance::control_once(int throttle, int servo) {
 void ObstacleAvoidance::follow_goal() {
   target_angle = std::min(std::max(target_angle, float(-90.0)), float(90.0));
   int throttle = int(target_speed * THROTTLE_FORWARD);
-  int servo = int(-1 * SERVO_LEFT * target_angle / 90.0);  // left turn is positive in code, but negative in rc car
+  int servo =
+    int(SERVO_LEFT * target_angle /
+        90.0);  // left turn is positive in code, but negative in rc car
   control_once(throttle, servo);
+  //  Serial.print("state: ");
+  //  Serial.print(state);
+  //  Serial.print("\t");
+  //  Serial.print("speed: ");
+  //  Serial.print(target_speed);
+  //  Serial.print("\t");
+  //  Serial.print("angle: ");
+  //  Serial.print(target_angle);
+  //  Serial.print("\n");
 }

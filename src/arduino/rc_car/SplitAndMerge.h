@@ -1,6 +1,6 @@
 #include <Arduino_AVRSTL.h>
 
-#include "obstacle_avoidance/Point.h"
+#include "Point.h"
 
 struct Wall {
   std::vector<Point> points;
